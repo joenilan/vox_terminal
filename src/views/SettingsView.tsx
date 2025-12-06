@@ -40,8 +40,8 @@ function HotkeyRecorder({ label, value, onChange }: { label: string, value: stri
                 onKeyDown={isRecording ? handleKeyDown : undefined}
                 onBlur={() => setIsRecording(false)}
                 className={`w-full px-4 py-3 rounded-lg border text-left font-mono text-sm transition-all outline-none ${isRecording
-                        ? 'bg-twitch text-white border-twitch ring-2 ring-twitch/50'
-                        : 'bg-dark-surface border-dark-surfaceHover text-gray-300 hover:border-twitch/50'
+                    ? 'bg-twitch text-white border-twitch ring-2 ring-twitch/50'
+                    : 'bg-dark-surface border-dark-surfaceHover text-gray-300 hover:border-twitch/50'
                     }`}
             >
                 {isRecording ? 'Press any key...' : (value || 'None')}
