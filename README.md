@@ -27,7 +27,11 @@
 
 ## Installation
 
-You can download the latest release installer (`.exe`) from the [Releases](./release) folder (if available) or build it yourself.
+You can download the latest release from the [Releases](./release) folder (if available) or build it yourself.
+
+**Available formats:**
+- **Installer (`-Setup.exe`)**: Standard Windows installer.
+- **Portable (`-Portable.exe`)**: Standalone executable (no installation required).
 
 ## Development
 

@@ -34,16 +34,19 @@
         ]
       }
     ],
-    "artifactName": "${productName}-Windows-${version}-Setup.${ext}",
     "certificateFile": "cert.pfx",
     "certificatePassword": "123456",
     "icon": "resources/icon.ico"
   },
   "nsis": {
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}",
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false
+  },
+  "portable": {
+    "artifactName": "${productName}-Windows-${version}-Portable.${ext}"
   },
   "linux": {
     "target": [
