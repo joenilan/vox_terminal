@@ -1,30 +1,83 @@
-# React + TypeScript + Vite
+# VOX_TERMINAL
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**VOX_TERMINAL** is a high-performance, electron-based text-to-speech engine designed specifically for Twitch streamers. It provides a highly customizable and visual interface for monitoring chat and converting messages to speech in real-time.
 
-Currently, two official plugins are available:
+![Icon](public/icon.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+- **Twitch Integration**: Seamlessly connects to Twitch chat to read messages aloud.
+- **Advanced TTS Control**:
+  - Select from all installed system voices.
+  - Fine-tune rate, pitch, and volume.
+  - Queue management with skip and history replay.
+- **Visual Customization**:
+  - Multiple built-in themes (Modern, Terminal, Cyberpunk, Glass, etc.).
+  - "Read Own Messages" toggle.
+  - Collapsible sidebar for compact viewing.
+- **Moderation & Filters**:
+  - Block specific users or bots.
+  - Filter out banned words or spam patterns.
+  - Smart filtering of common bot commands.
+- **Global Hotkeys**:
+  - Control playback (Stop/Skip) and connection status even when the app is in the background.
+- **Secure & Private**:
+  - Credentials are stored locally.
+  - "Sign Out & Forget" option for complete data clearance.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Installation
 
-- Configure the top-level `parserOptions` property like this:
+You can download the latest release installer (`.exe`) from the [Releases](./release) folder (if available) or build it yourself.
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+## Development
+
+This project uses **React**, **TypeScript**, **Vite**, and **Electron**.
+
+### Prerequisites
+- Node.js (Latest LTS recommended)
+- `bun` (Recommended package manager) or `npm`/`yarn`
+
+### Setup
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   bun install
+   ```
+
+### Running Locally
+Start the development server (Vite + Electron):
+```bash
+bun run dev
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+### Building
+Build the production application (creates installer in `release/`):
+```bash
+bun run build
+```
+
+## Configuration
+
+### Authentication
+VOX_TERMINAL uses a manual token entry flow for maximum security and control.
+1. Generate an **Access Token** (scope: `chat:read`) from a trusted generator (e.g., https://twitchtokengenerator.com).
+2. Enter the token in the **Settings** or **Connect** menu.
+3. (Optional) Provide Client ID and Refresh Token for extended sessions.
+
+### Application Settings
+Access the **Settings** panel (Gear icon) to configure:
+- Auto-Connect on startup.
+- Global Hotkeys.
+- Visual Themes.
+- Account Credentials.
+
+## Credits
+
+**Developer**: ZMBRT
+
+*Built with:*
+- [Electron](https://www.electronjs.org/)
+- [Vite](https://vitejs.dev/)
+- [React](https://react.dev/)
+- [TailwindCSS](https://tailwindcss.com/)
+- [Lucide React](https://lucide.dev/)
