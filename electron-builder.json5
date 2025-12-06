@@ -46,7 +46,7 @@
     "deleteAppDataOnUninstall": false
   },
   "portable": {
-    "artifactName": "${productName}-Windows-${version}-Portable.${ext}"
+    "artifactName": "${productName}-Windows-${version}-Standalone.${ext}"
   },
   "linux": {
     "target": [
