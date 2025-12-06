@@ -1,0 +1,217 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=VT323&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Default Theme (Modern / Twitch-like) */
+    --color-bg-base: 14 14 16;
+    /* #0e0e10 */
+    --color-bg-surface: 24 24 27;
+    /* #18181b */
+    --color-bg-hover: 45 46 53;
+    /* #2d2e35 */
+
+    --color-accent-primary: 145 70 255;
+    /* #9146FF (Twitch Purple) */
+    --color-accent-secondary: 169 112 255;
+    /* #a970ff */
+    --color-accent-dark: 69 16 147;
+    /* #451093 */
+
+    --color-text-primary: 255 255 255;
+    --color-text-secondary: 156 163 175;
+    /* gray-400 */
+    --color-text-muted: 107 114 128;
+    /* gray-500 */
+
+    --font-primary: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --radius-base: 0.75rem;
+    /* 12px - Rounded */
+    --radius-sm: 0.5rem;
+    /* 8px */
+  }
+}
+
+/* THEMES - Global Scope (Outside Layer) */
+
+/* CLASSIC TERMINAL THEME */
+body.theme-terminal {
+  --color-bg-base: 10 10 10;
+  --color-bg-surface: 0 0 0;
+  --color-bg-hover: 20 40 20;
+
+  --color-accent-primary: 51 255 51;
+  --color-accent-secondary: 100 255 100;
+  --color-accent-dark: 0 100 0;
+
+  --color-text-primary: 51 255 51;
+  --color-text-secondary: 40 200 40;
+  --color-text-muted: 30 150 30;
+
+  --font-primary: 'VT323', monospace;
+  --font-mono: 'VT323', monospace;
+
+  --radius-base: 0px;
+  --radius-sm: 0px;
+}
+
+/* DOS / WIN 95 HACKER THEME */
+body.theme-amber {
+  --color-bg-base: 12 10 0;
+  --color-bg-surface: 20 15 0;
+  --color-bg-hover: 40 30 0;
+
+  --color-accent-primary: 255 176 0;
+  --color-accent-secondary: 255 200 50;
+  --color-accent-dark: 150 100 0;
+
+  --color-text-primary: 255 176 0;
+  --color-text-secondary: 200 140 0;
+  --color-text-muted: 150 100 0;
+
+  --font-primary: 'VT323', monospace;
+  --font-mono: 'VT323', monospace;
+
+  --radius-base: 0px;
+  --radius-sm: 0px;
+}
+
+/* CYBERWAVE / ETHEREAL THEME */
+body.theme-cyberwave {
+  --color-bg-base: 15 10 25;
+  --color-bg-surface: 25 20 40;
+  --color-bg-hover: 45 35 70;
+
+  --color-accent-primary: 0 240 255;
+  --color-accent-secondary: 255 0 200;
+  --color-accent-dark: 100 0 150;
+
+  --color-text-primary: 240 230 255;
+  --color-text-secondary: 180 160 220;
+  --color-text-muted: 120 100 160;
+
+  --font-primary: 'JetBrains Mono', monospace;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-base: 1rem;
+  --radius-sm: 0.5rem;
+}
+
+/* DARK GLASS THEME */
+body.theme-glass {
+  --color-bg-base: 15 20 25;
+  --color-bg-surface: 25 35 45;
+  --color-bg-hover: 40 55 70;
+
+  --color-accent-primary: 56 189 248;
+  --color-accent-secondary: 125 211 252;
+  --color-accent-dark: 12 74 110;
+
+  --color-text-primary: 240 249 255;
+  --color-text-secondary: 186 230 253;
+  --color-text-muted: 125 211 252;
+
+  --font-primary: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-base: 1.5rem;
+  --radius-sm: 0.75rem;
+}
+
+/* ROGUE / RED THEME */
+body.theme-crimson {
+  --color-bg-base: 10 0 0;
+  --color-bg-surface: 25 5 5;
+  --color-bg-hover: 50 10 10;
+
+  --color-accent-primary: 220 20 60;
+  --color-accent-secondary: 255 80 80;
+  --color-accent-dark: 100 0 0;
+
+  --color-text-primary: 255 240 240;
+  --color-text-secondary: 255 150 150;
+  --color-text-muted: 150 50 50;
+
+  --font-primary: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-base: 0.25rem;
+  --radius-sm: 0.125rem;
+}
+
+/* FLARE / ORANGE THEME */
+body.theme-orange {
+  --color-bg-base: 15 10 5;
+  --color-bg-surface: 30 20 10;
+  --color-bg-hover: 50 35 20;
+
+  --color-accent-primary: 255 100 0;
+  --color-accent-secondary: 255 160 50;
+  --color-accent-dark: 150 50 0;
+
+  --color-text-primary: 255 250 240;
+  --color-text-secondary: 255 200 150;
+  --color-text-muted: 150 100 80;
+
+  --font-primary: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* OCEAN / BLUE THEME */
+body.theme-ocean {
+  --color-bg-base: 5 10 20;
+  --color-bg-surface: 10 20 40;
+  --color-bg-hover: 25 40 70;
+
+  --color-accent-primary: 0 140 255;
+  --color-accent-secondary: 100 200 255;
+  --color-accent-dark: 0 50 120;
+
+  --color-text-primary: 240 245 255;
+  --color-text-secondary: 180 200 255;
+  --color-text-muted: 100 120 180;
+
+  --font-primary: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-primary);
+  background-color: rgb(var(--color-bg-base));
+  color: rgb(var(--color-text-primary));
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+/* Custom Scrollbar - Themed */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-bg-surface));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-bg-hover));
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-accent-primary));
+}
