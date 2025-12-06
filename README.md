@@ -32,6 +32,7 @@ You can download the latest release from the [Releases](./release) folder (if av
 **Available formats:**
 - **Installer (`-Setup.exe`)**: Standard Windows installer.
 - **Portable (`-Portable.exe`)**: Standalone executable (no installation required).
+  > **Tip**: Create a folder named `data` next to the portable executable to store all settings and credentials locally within that folder, making it fully portable.
 
 ## Development
 

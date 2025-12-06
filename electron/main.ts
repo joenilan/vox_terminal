@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, shell, Menu } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -11,6 +12,17 @@ export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+
+// FAST PORTABLE CHECK:
+// If a "data" folder exists next to the executable, use it for user data.
+if (!VITE_DEV_SERVER_URL) {
+  const exeDir = path.dirname(app.getPath('exe'));
+  const portableDataPath = path.join(exeDir, 'data');
+  if (fs.existsSync(portableDataPath)) {
+    app.setPath('userData', portableDataPath);
+    console.log(`[Portable Mode] Using data path: ${portableDataPath}`);
+  }
+}
 
 let win: BrowserWindow | null
 
