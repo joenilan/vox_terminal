@@ -20,6 +20,29 @@
     "icon": "resources/icon.png"
   },
   "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "zip",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "${productName}-Windows-${version}.${ext}",
+    "certificateFile": "cert.pfx",
+    "certificatePassword": "123456",
+    "icon": "resources/icon.ico"
+  },
+  "nsis": {
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}",
+    "oneClick": false,
+    "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false
   },
