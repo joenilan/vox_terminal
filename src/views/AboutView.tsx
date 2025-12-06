@@ -1,5 +1,5 @@
 import { ViewShell } from '../components/ViewShell';
-import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch } from 'lucide-react';
+import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch, Volume2, Settings } from 'lucide-react';
 import { APP_VERSION } from '../config/version';
 
 export function AboutView() {
@@ -32,6 +32,36 @@ export function AboutView() {
                         Advanced Text-to-Speech Engine utilizing Twitch chat integration.
                         Built for streamers, by streamers.
                     </p>
+
+                    {/* Audio Output Limitation Note */}
+                    <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-left space-y-3">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-yellow-500/20 rounded-lg shrink-0">
+                                <Volume2 size={20} className="text-yellow-500" />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-yellow-500 uppercase mb-1">Audio Output Selection</h4>
+                                <p className="text-xs text-gray-400 leading-relaxed">
+                                    This app uses the Windows System TTS Engine, which follows your default playback device.
+                                    To route audio to a specific mixer track (e.g., for OBS):
+                                </p>
+                                <ol className="list-decimal list-inside text-xs text-gray-400 mt-2 space-y-1 ml-1">
+                                    <li>Start playing audio in VOX_TERMINAL (use Test button).</li>
+                                    <li>Open <strong>Windows Volume Mixer</strong>.</li>
+                                    <li>Find <strong>VOX_TERMINAL</strong> in the apps list.</li>
+                                    <li>Change the <strong>Output Device</strong> dropdown.</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => openLink('ms-settings:apps-volume')}
+                            className="w-full py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border border-yellow-500/20 flex items-center justify-center gap-2"
+                        >
+                            <Settings size={14} />
+                            Open Windows Volume Mixer
+                        </button>
+                    </div>
 
                     <div className="pt-4 border-t border-dark-surfaceHover flex flex-col items-center">
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Developed By</span>
@@ -84,7 +114,7 @@ export function AboutView() {
                     </div>
                 </div>
 
-            </div>
-        </ViewShell>
+            </div >
+        </ViewShell >
     );
 }

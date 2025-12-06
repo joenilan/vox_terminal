@@ -188,6 +188,22 @@ export function FiltersView() {
                             </label>
                         </div>
 
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-dark-surface overflow-hidden">
+                            <div className="min-w-0 mr-2">
+                                <div className="text-sm font-medium text-white truncate">Read My Messages</div>
+                                <div className="text-xs text-gray-400 truncate">Hear your own chats</div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input
+                                    type="checkbox"
+                                    checked={filterSettings.readOwnMessages}
+                                    onChange={(e) => updateFilterSettings({ readOwnMessages: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-twitch/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-twitch"></div>
+                            </label>
+                        </div>
+
                         <div className="flex items-center justify-between p-3 rounded-lg bg-dark-surface overflow-hidden md:col-span-2 lg:col-span-1">
                             <div className="flex-1 mr-4 min-w-0">
                                 <div className="text-sm font-medium text-white truncate">Max Length</div>

@@ -7,7 +7,8 @@ import { EmoteStats } from '../types';
 
 interface ChatContextType {
     isConnected: boolean;
-    connect: () => Promise<void>;
+    isConnecting: boolean;
+    connect: (overrideToken?: string) => Promise<void>;
     disconnect: () => Promise<void>;
     addMessageHandler: (handler: (channel: string, tags: any, message: string, self: boolean) => void) => void;
     removeMessageHandler: (handler: (channel: string, tags: any, message: string, self: boolean) => void) => void;
@@ -22,6 +23,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const { autoConnect } = useSettings();
 
     const [isConnected, setIsConnected] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
     const [emoteStats, setEmoteStats] = useState<EmoteStats | null>(null);
     const [emotes, setEmotes] = useState<Set<string>>(new Set());
 
@@ -44,8 +46,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    const connect = useCallback(async () => {
-        if (!isAuthenticated || !token) return;
+    const connect = useCallback(async (overrideToken?: string) => {
+        const activeToken = overrideToken || token;
+        // If overrideToken is present, we assume we are authenticated for the purpose of the attempt
+        const activeAuth = overrideToken ? true : isAuthenticated;
+
+        if (!activeAuth || !activeToken || isConnecting) return;
+
+        setIsConnecting(true);
 
         // Reset manual disconnect flag on explicit connect attempt
         setManualDisconnect(false);
@@ -53,7 +61,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         try {
             // Fetch user info using the token (lightweight validation)
             const response = await fetch('https://id.twitch.tv/oauth2/validate', {
-                headers: { 'Authorization': `OAuth ${token}` }
+                headers: { 'Authorization': `OAuth ${activeToken}` }
             });
 
             if (!response.ok) {
@@ -69,8 +77,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             const userId = data.user_id;
 
             // Connect to chat
-            await chatService.current?.connect(username, token, username);
+            await chatService.current?.connect(username, activeToken, username);
             setIsConnected(true);
+            setIsConnecting(false);
 
             // Fetch Emotes
             if (userId) {
@@ -83,9 +92,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         } catch (e: any) {
             console.error("Chat Connect Failed", e);
             setIsConnected(false);
+            setIsConnecting(false);
             throw e;
         }
-    }, [isAuthenticated, token]);
+    }, [isAuthenticated, token, isConnecting]);
 
     const disconnect = async () => {
         if (chatService.current) {
@@ -126,7 +136,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const removeMessageHandler = (handler: any) => handlers.current.delete(handler);
 
     return (
-        <ChatContext.Provider value={{ isConnected, connect, disconnect, addMessageHandler, removeMessageHandler, emoteStats, emotes }}>
+        <ChatContext.Provider value={{ isConnected, isConnecting, connect, disconnect, addMessageHandler, removeMessageHandler, emoteStats, emotes }}>
             {children}
         </ChatContext.Provider>
     );

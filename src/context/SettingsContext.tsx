@@ -7,6 +7,7 @@ export interface FilterSettings {
     maxMessageLength: number;
     removeRepeatedChars: boolean; // e.g. "Wwwwwwhat" -> "What"
     removeRepeatedWords: boolean; // e.g. "Zombie Zombie Zombie" -> "Zombie"
+    readOwnMessages: boolean; // If true, read messages from the broadcaster
 }
 
 export interface HotkeyConfig {
@@ -76,7 +77,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             allowEmotes: false,
             removeRepeatedChars: true,
             removeRepeatedWords: true,
-            maxMessageLength: 300
+            maxMessageLength: 300,
+            readOwnMessages: true
         };
 
         if (initialSettings?.filterSettings) {
@@ -89,7 +91,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 ...initialSettings.filterSettings,
                 blockedUsers: mergedBlocked,
                 // Ensure new flags are present even if loading old settings
-                removeRepeatedWords: initialSettings.filterSettings.removeRepeatedWords ?? true
+                removeRepeatedWords: initialSettings.filterSettings.removeRepeatedWords ?? true,
+                readOwnMessages: initialSettings.filterSettings.readOwnMessages ?? true
             };
         }
         return defaults;

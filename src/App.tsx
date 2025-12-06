@@ -1,30 +1,29 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { TTSView } from './views/TTSView';
 import { SettingsView } from './views/SettingsView';
 import { FiltersView } from './views/FiltersView';
 import { LogsView } from './views/LogsView';
 import { AboutView } from './views/AboutView';
+import { EmoteStats } from './types';
 
 export type View = 'tts' | 'settings' | 'filters' | 'logs' | 'about';
-
-import { EmoteStats } from './types';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('tts');
   const [logs, setLogs] = useState<{ timestamp: string, user: string, message: string }[]>([]);
   const [emoteStats, setEmoteStats] = useState<EmoteStats>(null);
 
-  const addLog = (user: string, message: string) => {
+  const addLog = useCallback((user: string, message: string) => {
     setLogs(prev => {
       const newLog = {
         timestamp: new Date().toLocaleTimeString(),
         user,
         message
       };
-      return [newLog, ...prev].slice(0, 1000); // 1000 message buffer
+      return [...prev, newLog].slice(-1000); // 1000 message buffer, keep last 1000
     });
-  };
+  }, []);
 
   return (
     <Layout currentView={currentView} setCurrentView={setCurrentView} emoteStats={emoteStats}>

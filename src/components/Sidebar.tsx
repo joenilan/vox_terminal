@@ -1,6 +1,7 @@
-import { Mic2, Settings, MessageSquare, ShieldAlert, Terminal, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Mic2, Settings, MessageSquare, ShieldAlert, Terminal, Info, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { AuthStatus } from './AuthStatus';
+import { useChat } from '../context/ChatContext';
 import { useTwitchAuth } from '../hooks/useTwitchAuth';
 import { View } from '../App';
 import { EmoteStats } from '../types';
@@ -46,6 +47,7 @@ import { useSettings } from '../context/SettingsContext';
 
 export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProps) {
     const auth = useTwitchAuth();
+    const { isConnecting } = useChat(); // Added isConnecting for button feedback
     const { sidebarCollapsed, setSidebarCollapsed } = useSettings();
     const [showTokenModal, setShowTokenModal] = useState(false);
 
@@ -124,10 +126,20 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
                 {!auth.isAuthenticated && !collapsed && (
                     <button
                         onClick={() => setShowTokenModal(true)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors group w-full"
+                        disabled={isConnecting}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors group w-full ${isConnecting
+                            ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 cursor-wait'
+                            : 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30'
+                            }`}
                     >
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 group-hover:animate-pulse" />
-                        <span className="text-xs font-medium text-red-500">Connect Account</span>
+                        {isConnecting ? (
+                            <Loader2 size={8} className="animate-spin text-yellow-500" />
+                        ) : (
+                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 group-hover:animate-pulse" />
+                        )}
+                        <span className={`text-xs font-medium ${isConnecting ? 'text-yellow-500' : 'text-red-500'}`}>
+                            {isConnecting ? 'Connecting...' : 'Connect Account'}
+                        </span>
                     </button>
                 )}
             </div>

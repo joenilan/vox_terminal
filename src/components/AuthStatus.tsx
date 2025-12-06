@@ -1,9 +1,9 @@
-import { LogOut, Power, User } from 'lucide-react';
+import { LogOut, Power, User, Loader2 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useTwitchAuth } from '../hooks/useTwitchAuth';
 
 export function AuthStatus({ auth }: { auth: any }) {
-    const { isConnected, connect, disconnect } = useChat();
+    const { isConnected, isConnecting, connect, disconnect } = useChat();
     const { clearCredentials } = useTwitchAuth();
 
     if (!auth.isAuthenticated) {
@@ -11,6 +11,7 @@ export function AuthStatus({ auth }: { auth: any }) {
     }
 
     const toggleConnection = async () => {
+        if (isConnecting) return; // Prevent clicks while connecting
         if (isConnected) {
             await disconnect();
         } else {
@@ -20,20 +21,32 @@ export function AuthStatus({ auth }: { auth: any }) {
 
     return (
         <div className="grid grid-cols-1 gap-1">
-            <div className="flex items-center justify-between p-3 rounded bg-dark-surface border border-dark-surfaceHover">
+            <div className={`flex items-center justify-between p-3 rounded bg-dark-surface border border-dark-surfaceHover transition-colors ${isConnecting ? 'border-yellow-500/30 bg-yellow-500/5' : ''}`}>
                 <div className="flex items-center gap-2">
-                    <User size={16} className={isConnected ? "text-green-500" : "text-gray-500"} />
+                    {isConnecting ? (
+                        <Loader2 size={16} className="text-yellow-500 animate-spin" />
+                    ) : (
+                        <User size={16} className={isConnected ? "text-green-500" : "text-gray-500"} />
+                    )}
                     <div className="flex flex-col">
-                        <span className="text-sm font-medium leading-none">{isConnected ? 'Online' : 'Offline'}</span>
-                        <span className="text-[10px] text-gray-400 leading-none mt-1">Chat Status</span>
+                        <span className="text-sm font-medium leading-none">
+                            {isConnecting ? 'Connecting...' : (isConnected ? 'Online' : 'Offline')}
+                        </span>
+                        <span className={`text-[10px] leading-none mt-1 ${isConnecting ? 'text-yellow-500/70' : 'text-gray-400'}`}>Chat Status</span>
                     </div>
                 </div>
                 <button
                     onClick={toggleConnection}
-                    className={`p-1.5 rounded-md transition-all ${isConnected ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'}`}
-                    title={isConnected ? "Disconnect Chat" : "Connect Chat"}
+                    disabled={isConnecting}
+                    className={`p-1.5 rounded-md transition-all ${isConnecting
+                            ? 'bg-yellow-500/10 text-yellow-500 cursor-wait'
+                            : isConnected
+                                ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
+                                : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                        }`}
+                    title={isConnecting ? "Connecting..." : (isConnected ? "Disconnect Chat" : "Connect Chat")}
                 >
-                    <Power size={16} />
+                    {isConnecting ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
                 </button>
             </div>
 

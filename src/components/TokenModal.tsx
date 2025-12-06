@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { KeyRound, X, Check } from 'lucide-react';
+import { KeyRound, X, Check, Loader2 } from 'lucide-react';
 import { useTwitchAuth } from '../hooks/useTwitchAuth';
 import { useSettings } from '../context/SettingsContext';
+import { useChat } from '../context/ChatContext';
 
 interface TokenModalProps {
     isOpen: boolean;
@@ -11,6 +12,8 @@ interface TokenModalProps {
 export function TokenModal({ isOpen, onClose }: TokenModalProps) {
     const { setManualToken } = useTwitchAuth();
     const { setAutoConnect } = useSettings();
+    const { connect, isConnecting } = useChat();
+
     const [token, setTokenInput] = useState('');
     const [refreshToken, setRefreshTokenInput] = useState('');
     const [clientId, setClientIdInput] = useState('');
@@ -18,7 +21,7 @@ export function TokenModal({ isOpen, onClose }: TokenModalProps) {
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -27,18 +30,26 @@ export function TokenModal({ isOpen, onClose }: TokenModalProps) {
             return;
         }
 
+        const cleanToken = token.replace('oauth:', '').trim();
+        const cleanRefreshToken = refreshToken.trim();
+        const cleanClientId = clientId.trim();
+
         // Pass all 3 prompts to the auth context
         setManualToken(
-            token.trim(),
-            refreshToken.trim() || undefined,
-            clientId.trim() || undefined
+            cleanToken,
+            cleanRefreshToken || undefined,
+            cleanClientId || undefined
         );
 
-        // Explicitly enable Auto-Connect since the user just manually signed in
-        // This triggers the ChatContext auto-connect effect
+        // Also enable auto-connect for future
         setAutoConnect(true);
 
-        onClose();
+        try {
+            await connect(cleanToken);
+            onClose();
+        } catch (e) {
+            setError('Connection failed. Please check your token.');
+        }
     };
 
     return (
@@ -120,10 +131,11 @@ export function TokenModal({ isOpen, onClose }: TokenModalProps) {
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-twitch hover:bg-twitch-dark text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                            disabled={isConnecting}
+                            className="px-4 py-2 bg-twitch hover:bg-twitch-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
                         >
-                            <Check size={16} />
-                            Save & Connect
+                            {isConnecting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                            {isConnecting ? 'Connecting...' : 'Save & Connect'}
                         </button>
                     </div>
                 </form>

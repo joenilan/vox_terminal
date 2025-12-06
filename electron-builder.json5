@@ -5,7 +5,8 @@
   "asar": true,
   "productName": "VOX_TERMINAL",
   "directories": {
-    "output": "release/${version}"
+    "output": "release/${version}",
+    "buildResources": "resources"
   },
   "files": [
     "dist",
@@ -15,7 +16,8 @@
     "target": [
       "dmg"
     ],
-    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}",
+    "icon": "resources/icon.png"
   },
   "win": {
     "target": [
@@ -34,7 +36,8 @@
     ],
     "artifactName": "${productName}-Windows-${version}-Setup.${ext}",
     "certificateFile": "cert.pfx",
-    "certificatePassword": "123456"
+    "certificatePassword": "123456",
+    "icon": "resources/icon.ico"
   },
   "nsis": {
     "oneClick": false,

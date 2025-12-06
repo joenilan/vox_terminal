@@ -1,3 +1,4 @@
+import React from 'react';
 import { Download, Trash2, FileText, Clock } from 'lucide-react';
 import { ViewShell } from '../components/ViewShell';
 
@@ -5,6 +6,14 @@ export function LogsView({ logs, onClear }: {
     logs: { timestamp: string, user: string, message: string }[],
     onClear: () => void
 }) {
+    const scrollRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [logs]);
+
     const handleExport = () => {
         const text = logs.map(l => `[${l.timestamp}] ${l.user}: ${l.message}`).join('\n');
         const blob = new Blob([text], { type: 'text/plain' });
@@ -40,7 +49,10 @@ export function LogsView({ logs, onClear }: {
             }
         >
             <div className="rounded-xl bg-dark-bg border border-dark-surfaceHover h-full flex flex-col">
-                <div className="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-sm">
+                <div
+                    ref={scrollRef}
+                    className="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-sm scroll-smooth custom-scrollbar"
+                >
                     {logs.length === 0 ? (
                         <div className="text-center text-gray-500 py-20 italic flex flex-col items-center">
                             <Clock size={48} className="mb-4 opacity-20" />

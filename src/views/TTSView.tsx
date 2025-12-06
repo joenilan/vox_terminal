@@ -33,12 +33,6 @@ export function TTSView({ addLog, setEmoteStats }: {
     useEffect(() => {
         if (chatEmoteStats) {
             setEmoteStats(chatEmoteStats);
-            // We need to pass the raw emotes set if available, but ChatContext exposes it now.
-            // However, useChat definition in the file might need to be checked if I added 'emotes'. 
-            // For now, let's assume FilterService might just need the stats or we can extend this later.
-            // If ChatContext wasn't updated with "emotes" in the interface locally, we might get a TS error.
-            // But I did update ChatContext to include it.
-            // access via destructuring if needed: const { emotes } = useChat();
         }
     }, [chatEmoteStats, setEmoteStats]);
 
@@ -66,7 +60,7 @@ export function TTSView({ addLog, setEmoteStats }: {
 
     // Message Handler
     const handleChatMessage = useCallback((_channel: string, tags: any, message: string, self: boolean) => {
-        if (self) return;
+        if (self && !filterSettings.readOwnMessages) return;
 
         const username = tags['display-name'] || tags.username || 'Unknown';
 
@@ -78,9 +72,13 @@ export function TTSView({ addLog, setEmoteStats }: {
 
         if (process && cleanMessage) {
             ttsEngine.current?.speak(cleanMessage, username);
-            setHistory(prev => [{ text: cleanMessage, username, id: Date.now().toString() }, ...prev].slice(50));
+            const newMessage = { text: cleanMessage, username, id: crypto.randomUUID() };
+            setHistory(prev => {
+                const updated = [newMessage, ...prev].slice(0, 50); // Keep last 50 (Newest First)
+                return updated;
+            });
         }
-    }, [addLog]);
+    }, [addLog, filterSettings]);
 
     // Initialize Services
     useEffect(() => {
@@ -145,11 +143,8 @@ export function TTSView({ addLog, setEmoteStats }: {
     const [manualRefreshToken, setManualRefreshToken] = useState('');
     const [manualClientId, setManualClientId] = useState('');
 
-
-
     const confirmDisconnect = async () => {
         await disconnectChat();
-        // setManualDisconnect(true) is now handled internally by ChatContext.disconnect()
         setShowDisconnectConfirm(false);
         setEmoteStats(null);
     };
@@ -184,13 +179,10 @@ export function TTSView({ addLog, setEmoteStats }: {
     }
 
     const handleConnectClick = useCallback(async () => {
-        // Case 1: Already connected -> Disconnect
         if (isChatConnected) {
             setShowDisconnectConfirm(true);
             return;
         }
-
-        // Case 2: Has token (from storage) -> Connect directly
         if (isAuthenticated && token) {
             connectChat().catch((e: any) => {
                 console.error(e);
@@ -198,8 +190,6 @@ export function TTSView({ addLog, setEmoteStats }: {
             });
             return;
         }
-
-        // Case 3: No token -> Show input
         setShowTokenInput(true);
     }, [isAuthenticated, token, isChatConnected, connectChat]);
 
@@ -242,8 +232,6 @@ export function TTSView({ addLog, setEmoteStats }: {
             icon={Mic2}
             headerAction={
                 <div className="flex gap-2 relative">
-
-
                     <button
                         onClick={handleStop}
                         className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors font-medium border border-red-500/20 text-sm"
@@ -264,7 +252,6 @@ export function TTSView({ addLog, setEmoteStats }: {
                 </div>
             }
         >
-
             {/* Token Input Modal Overlay */}
             {showTokenInput && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-in fade-in">
@@ -273,56 +260,23 @@ export function TTSView({ addLog, setEmoteStats }: {
                         <p className="text-gray-400 text-sm">
                             Paste your Twitch credentials below. We recommend using <button onClick={handleGenerateToken} className="text-twitch underline font-bold">TwitchTokenGenerator</button>.
                         </p>
-
                         <div className="space-y-3">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Access Token (Required)</label>
-                                <input
-                                    type="password"
-                                    placeholder="u..."
-                                    value={manualToken}
-                                    onChange={(e) => setManualTokenInput(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm"
-                                />
+                                <input type="password" placeholder="u..." value={manualToken} onChange={(e) => setManualTokenInput(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm" />
                             </div>
-
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Refresh Token (Optional)</label>
-                                <input
-                                    type="password"
-                                    placeholder="For auto-reconnect..."
-                                    value={manualRefreshToken}
-                                    onChange={(e) => setManualRefreshToken(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm"
-                                />
+                                <input type="password" placeholder="For auto-reconnect..." value={manualRefreshToken} onChange={(e) => setManualRefreshToken(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm" />
                             </div>
-
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Client ID (Optional)</label>
-                                <input
-                                    type="text"
-                                    placeholder="gp762..."
-                                    value={manualClientId}
-                                    onChange={(e) => setManualClientId(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm"
-                                />
+                                <input type="text" placeholder="gp762..." value={manualClientId} onChange={(e) => setManualClientId(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm" />
                             </div>
                         </div>
-
                         <div className="flex justify-end gap-2 pt-2">
-                            <button
-                                onClick={() => setShowTokenInput(false)}
-                                className="px-4 py-2 text-gray-400 hover:text-white"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleManualTokenSubmit}
-                                disabled={!manualToken}
-                                className="px-6 py-2 bg-twitch hover:bg-twitch-dark disabled:opacity-50 text-white rounded-lg font-bold"
-                            >
-                                Verify & Connect
-                            </button>
+                            <button onClick={() => setShowTokenInput(false)} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
+                            <button onClick={handleManualTokenSubmit} disabled={!manualToken} className="px-6 py-2 bg-twitch hover:bg-twitch-dark disabled:opacity-50 text-white rounded-lg font-bold">Verify & Connect</button>
                         </div>
                     </div>
                 </div>
@@ -331,14 +285,15 @@ export function TTSView({ addLog, setEmoteStats }: {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full min-h-0">
                 {/* Main Controls - Left Column */}
                 <div className="md:col-span-2 space-y-4">
-
                     {/* Voice Selection & Controls */}
                     <div className="p-4 rounded-xl bg-dark-bg border border-dark-surfaceHover">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Volume2 size={18} className="text-twitch-light" />
-                            <h3 className="text-base font-semibold">Voice Configuration</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Volume2 size={18} className="text-twitch-light" />
+                                <h3 className="text-base font-semibold">Voice Configuration</h3>
+                            </div>
+                            <button onClick={() => { if (window.ipcRenderer) { window.ipcRenderer.invoke('open-external', 'ms-settings:apps-volume'); } }} className="text-xs text-twitch hover:text-white underline decoration-dashed underline-offset-4" title="Open Windows Volume Mixer to change output device">Setup Audio Output</button>
                         </div>
-
                         <div className="space-y-4">
                             <div>
                                 <select
@@ -356,19 +311,21 @@ export function TTSView({ addLog, setEmoteStats }: {
                                 <div>
                                     <label className="block text-xs font-medium text-gray-400 mb-1">Volume: {Math.round(volume * 100)}%</label>
                                     <input
-                                        type="range" min="0" max="1" step="0.1"
+                                        type="range"
+                                        min="0" max="1" step="0.1"
                                         value={volume}
                                         onChange={(e) => setVolume(parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-twitch"
+                                        className="w-full accent-twitch"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-400 mb-1">Rate: {rate}x</label>
                                     <input
-                                        type="range" min="0.5" max="3" step="0.1"
+                                        type="range"
+                                        min="0.5" max="3" step="0.1"
                                         value={rate}
                                         onChange={(e) => setRate(parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-twitch"
+                                        className="w-full accent-twitch"
                                     />
                                 </div>
                             </div>
@@ -399,18 +356,8 @@ export function TTSView({ addLog, setEmoteStats }: {
                 {/* Queue & History - Right Column */}
                 <div className="h-full min-h-0 bg-dark-bg border border-dark-surfaceHover rounded-xl flex flex-col overflow-hidden">
                     <div className="flex border-b border-dark-surfaceHover">
-                        <button
-                            onClick={() => setActiveTab('queue')}
-                            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'queue' ? 'text-twitch border-b-2 border-twitch' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Queue ({queue.length})
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('history')}
-                            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'history' ? 'text-twitch border-b-2 border-twitch' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            History
-                        </button>
+                        <button onClick={() => setActiveTab('queue')} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'queue' ? 'text-twitch border-b-2 border-twitch' : 'text-gray-400 hover:text-white'}`}>Queue ({queue.length})</button>
+                        <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'history' ? 'text-twitch border-b-2 border-twitch' : 'text-gray-400 hover:text-white'}`}>History</button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
@@ -436,13 +383,7 @@ export function TTSView({ addLog, setEmoteStats }: {
                                     <div key={msg.id} className="p-3 rounded-lg bg-dark-surface/50 border border-dark-surfaceHover/50 group hover:border-dark-surfaceHover transition-colors">
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="font-bold text-gray-400 text-sm">{msg.username}</span>
-                                            <button
-                                                onClick={() => handleReplay(msg)}
-                                                className="text-gray-500 hover:text-twitch opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Replay"
-                                            >
-                                                <RotateCcw size={14} />
-                                            </button>
+                                            <button onClick={() => handleReplay(msg)} className="text-gray-500 hover:text-twitch opacity-0 group-hover:opacity-100 transition-opacity" title="Replay"><RotateCcw size={14} /></button>
                                         </div>
                                         <p className="text-gray-400 text-sm">{msg.text}</p>
                                     </div>
@@ -452,6 +393,6 @@ export function TTSView({ addLog, setEmoteStats }: {
                     </div>
                 </div>
             </div>
-        </ViewShell>
+        </ViewShell >
     );
 }

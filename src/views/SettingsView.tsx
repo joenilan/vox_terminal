@@ -1,9 +1,9 @@
 import { useSettings } from '../context/SettingsContext';
 import { useTwitchAuth } from '../hooks/useTwitchAuth';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, Settings, Volume2, Globe, Keyboard } from 'lucide-react';
+import { LogOut, Settings, Globe, Keyboard, Save, CheckCircle2 } from 'lucide-react';
 import { ViewShell } from '../components/ViewShell';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // Sub-component for Hotkey Recording
 function HotkeyRecorder({ label, value, onChange }: { label: string, value: string, onChange: (k: string) => void }) {
@@ -52,51 +52,69 @@ function HotkeyRecorder({ label, value, onChange }: { label: string, value: stri
 
 export function SettingsView() {
     const {
-        volume, setVolume,
-        rate, setRate,
         autoConnect, setAutoConnect,
         hotkeys, setHotkey
     } = useSettings();
-    const { clearCredentials } = useTwitchAuth();
+    const { token, refreshToken, clientId, clearCredentials, setManualToken } = useTwitchAuth();
     const { theme, setTheme } = useTheme();
+
+    // Local state for form inputs
+    const [localToken, setLocalToken] = useState('');
+    const [localRefreshToken, setLocalRefreshToken] = useState('');
+    const [localClientId, setLocalClientId] = useState('');
+    const [isDirty, setIsDirty] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Sync local state with global state on mount or when global changes (if not dirty)
+    useEffect(() => {
+        if (!isDirty) {
+            setLocalToken(token || '');
+            setLocalRefreshToken(refreshToken || '');
+            setLocalClientId(clientId || '');
+        }
+    }, [token, refreshToken, clientId, isDirty]);
+
+    const performSave = useCallback(() => {
+        const cleanToken = localToken.replace('oauth:', '').trim();
+        const cleanRefresh = localRefreshToken.trim();
+        const cleanClient = localClientId.trim();
+
+        setManualToken(cleanToken, cleanRefresh || undefined, cleanClient || undefined);
+        setIsDirty(false);
+        setIsSaving(false);
+    }, [localToken, localRefreshToken, localClientId, setManualToken]);
+
+    // Debounced Auto-Save
+    useEffect(() => {
+        if (!isDirty) return;
+
+        setIsSaving(true);
+        const timer = setTimeout(() => {
+            performSave();
+        }, 1000); // 1s debounce
+
+        return () => clearTimeout(timer);
+    }, [localToken, localRefreshToken, localClientId, isDirty, performSave]);
+
+    const handleManualSave = () => {
+        performSave();
+    };
+
+    const handleClear = () => {
+        if (confirm('Are you sure you want to delete all saved Twitch credentials?')) {
+            clearCredentials();
+            setLocalToken('');
+            setLocalRefreshToken('');
+            setLocalClientId('');
+            setIsDirty(false);
+        }
+    };
 
     return (
         <ViewShell title="GLOBAL_CONFIG" subtitle="System preferences & personalization" icon={Settings}>
             <div className="space-y-8 max-w-2xl mx-auto">
 
-                {/* Audio Settings */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Volume2 className="text-twitch" size={20} />
-                        Audio Output
-                    </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-xl bg-dark-bg border border-dark-surfaceHover">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-300">Master Volume</label>
-                            <input
-                                type="range"
-                                min="0" max="1" step="0.05"
-                                value={volume}
-                                onChange={(e) => setVolume(parseFloat(e.target.value))}
-                                className="w-full accent-twitch"
-                            />
-                            <div className="text-right text-xs text-gray-500">{Math.round(volume * 100)}%</div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-300">Speech Rate</label>
-                            <input
-                                type="range"
-                                min="0.5" max="2.0" step="0.1"
-                                value={rate}
-                                onChange={(e) => setRate(parseFloat(e.target.value))}
-                                className="w-full accent-twitch"
-                            />
-                            <div className="text-right text-xs text-gray-500">{rate}x</div>
-                        </div>
-                    </div>
-                </div>
 
                 {/* Connection Settings */}
                 <div className="space-y-4">
@@ -221,23 +239,63 @@ export function SettingsView() {
 
                 <div className="p-4 rounded-xl bg-dark-bg border border-dark-surfaceHover">
                     <h3 className="text-base font-semibold mb-3 text-white">Account Management</h3>
-                    <div className="bg-dark-surface rounded-lg p-3">
-                        <div className="flex items-center justify-between">
+                    <div className="bg-dark-surface rounded-lg p-4 space-y-4">
+                        <div className="space-y-3">
                             <div>
-                                <div className="text-sm font-medium text-white">Clear Saved Credentials</div>
-                                <div className="text-xs text-gray-400">Removes all saved Twitch tokens from this device. You will need to re-authenticate.</div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Access Token</label>
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        value={localToken}
+                                        onChange={(e) => { setLocalToken(e.target.value); setIsDirty(true); }}
+                                        className="w-full px-3 py-2 rounded-lg bg-dark-bg border border-dark-surfaceHover text-white text-sm font-mono focus:border-twitch focus:ring-1 focus:ring-twitch outline-none transition-all"
+                                        placeholder="No token saved"
+                                    />
+                                </div>
                             </div>
-                            <button
-                                onClick={() => {
-                                    if (confirm('Are you sure you want to delete all saved Twitch credentials?')) {
-                                        clearCredentials();
-                                    }
-                                }}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors font-medium border border-red-500/20 text-xs"
-                            >
-                                <LogOut size={14} />
-                                Clear Data
-                            </button>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Refresh Token</label>
+                                <input
+                                    type="password"
+                                    value={localRefreshToken}
+                                    onChange={(e) => { setLocalRefreshToken(e.target.value); setIsDirty(true); }}
+                                    className="w-full px-3 py-2 rounded-lg bg-dark-bg border border-dark-surfaceHover text-white text-sm font-mono focus:border-twitch focus:ring-1 focus:ring-twitch outline-none transition-all"
+                                    placeholder="No refresh token saved"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Client ID</label>
+                                <input
+                                    type="text"
+                                    value={localClientId}
+                                    onChange={(e) => { setLocalClientId(e.target.value); setIsDirty(true); }}
+                                    className="w-full px-3 py-2 rounded-lg bg-dark-bg border border-dark-surfaceHover text-white text-sm font-mono focus:border-twitch focus:ring-1 focus:ring-twitch outline-none transition-all"
+                                    placeholder="No client ID saved"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-dark-surfaceHover flex items-center justify-between">
+                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                                {isSaving ? <span className="text-yellow-500 font-bold">Saving...</span> : isDirty ? <span className="text-gray-400">Unsaved changes...</span> : <span className="text-green-500 flex items-center gap-1"><CheckCircle2 size={12} /> Saved</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleManualSave}
+                                    disabled={!isDirty}
+                                    className="flex items-center gap-2 px-4 py-2 bg-twitch hover:bg-twitch-dark disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-bold text-xs transition-colors"
+                                >
+                                    <Save size={14} />
+                                    Save
+                                </button>
+                                <button
+                                    onClick={handleClear}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors font-medium border border-red-500/20 text-xs"
+                                >
+                                    <LogOut size={14} />
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
