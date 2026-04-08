@@ -1,6 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { APP_VERSION } from '../config/version';
 import { Volume2, Play, Square, RotateCcw, Mic2 } from 'lucide-react';
+import type { TtsVoice } from '../services/TTSEngine';
+import type { AudioDevice } from '../types';
 import { ViewShell } from '../components/ViewShell';
 import { TTSEngine, TTSMessage } from '../services/TTSEngine';
 import { useChat } from '../context/ChatContext';
@@ -9,16 +13,18 @@ import { FilterService } from '../services/FilterService';
 import { EmoteStats } from '../types';
 import { useSettings } from '../context/SettingsContext';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { DeviceAuthModal } from '../components/DeviceAuthModal';
 
 export function TTSView({ addLog, setEmoteStats }: {
     addLog: (user: string, message: string) => void;
     setEmoteStats: (stats: EmoteStats) => void;
 }) {
-    const { token, isAuthenticated, setManualToken } = useTwitchAuth();
+    const { token, isAuthenticated } = useTwitchAuth();
     const {
         volume, setVolume,
         rate, setRate,
         selectedVoiceURI, setSelectedVoiceURI,
+        audioDeviceId, setAudioDeviceId,
         filterSettings
     } = useSettings();
 
@@ -52,7 +58,8 @@ export function TTSView({ addLog, setEmoteStats }: {
     }, [filterSettings]);
 
     // State
-    const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+    const [voices, setVoices] = useState<TtsVoice[]>([]);
+    const [audioDevices, setAudioDevices] = useState<AudioDevice[]>([]);
     const [queue, setQueue] = useState<TTSMessage[]>([]);
     const [history, setHistory] = useState<TTSMessage[]>([]);
     const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
@@ -71,7 +78,10 @@ export function TTSView({ addLog, setEmoteStats }: {
         addLog(username, `${message} ${!process ? '(Filtered)' : ''}`);
 
         if (process && cleanMessage) {
-            ttsEngine.current?.speak(cleanMessage, username);
+            const spokenText = filterSettings.announceUsername
+                ? `${username} says ${cleanMessage}`
+                : cleanMessage;
+            ttsEngine.current?.speak(cleanMessage, username, spokenText);
             const newMessage = { text: cleanMessage, username, id: crypto.randomUUID() };
             setHistory(prev => {
                 const updated = [newMessage, ...prev].slice(0, 50); // Keep last 50 (Newest First)
@@ -86,47 +96,37 @@ export function TTSView({ addLog, setEmoteStats }: {
             setQueue(newQueue);
         });
 
-        // Register Handler
         addMessageHandler(handleChatMessage);
 
-        // Load voices
-        const loadVoices = () => {
-            const vs = ttsEngine.current?.getVoices() || [];
+        // Load WinRT voices and WASAPI output devices
+        invoke<TtsVoice[]>('get_tts_voices').then((vs) => {
             setVoices(vs);
-
-            // If we have a saved voice, try to find it
             if (selectedVoiceURI) {
-                const found = vs.find(v => v.voiceURI === selectedVoiceURI);
-                if (found) {
-                    ttsEngine.current?.setVoice(found.name);
-                }
+                const found = vs.find(v => v.id === selectedVoiceURI);
+                ttsEngine.current?.setVoice(found?.id ?? null);
             } else if (vs.length > 0) {
-                // Default to first if nothing saved
-                setSelectedVoiceURI(vs[0].voiceURI);
-                ttsEngine.current?.setVoice(vs[0].name);
+                setSelectedVoiceURI(vs[0].id);
+                ttsEngine.current?.setVoice(vs[0].id);
             }
-        };
+        });
 
-        loadVoices();
-        window.speechSynthesis.onvoiceschanged = loadVoices;
+        invoke<AudioDevice[]>('get_audio_devices').then(setAudioDevices);
 
         return () => {
             removeMessageHandler(handleChatMessage);
-            ttsEngine.current?.stop();
+            ttsEngine.current?.destroy();
         };
-    }, [addMessageHandler, removeMessageHandler, handleChatMessage, selectedVoiceURI, setSelectedVoiceURI]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [addMessageHandler, removeMessageHandler, handleChatMessage]);
 
-    // Update Settings
+    // Sync engine settings
     useEffect(() => {
-        if (ttsEngine.current) {
-            const voice = voices.find(v => v.voiceURI === selectedVoiceURI);
-            if (voice) {
-                ttsEngine.current.setVoice(voice.name);
-            }
-            ttsEngine.current.volume = volume;
-            ttsEngine.current.rate = rate;
-        }
-    }, [selectedVoiceURI, volume, rate, voices]);
+        if (!ttsEngine.current) return;
+        ttsEngine.current.setVoice(selectedVoiceURI);
+        ttsEngine.current.setDevice(audioDeviceId);
+        ttsEngine.current.volume = volume;
+        ttsEngine.current.rate = rate;
+    }, [selectedVoiceURI, audioDeviceId, volume, rate]);
 
     // Sync Auth State Disconnect
     useEffect(() => {
@@ -136,12 +136,8 @@ export function TTSView({ addLog, setEmoteStats }: {
         }
     }, [isAuthenticated, isChatConnected, setEmoteStats, disconnectChat]);
 
-    // Manual Token Logic
-    const [showTokenInput, setShowTokenInput] = useState(false);
+    const [showDeviceAuth, setShowDeviceAuth] = useState(false);
     const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
-    const [manualToken, setManualTokenInput] = useState('');
-    const [manualRefreshToken, setManualRefreshToken] = useState('');
-    const [manualClientId, setManualClientId] = useState('');
 
     const confirmDisconnect = async () => {
         await disconnectChat();
@@ -149,48 +145,16 @@ export function TTSView({ addLog, setEmoteStats }: {
         setEmoteStats(null);
     };
 
-    const handleManualTokenSubmit = () => {
-        if (manualToken) {
-            // Clean token
-            const cleanToken = manualToken.replace('oauth:', '').trim();
-            const cleanRefresh = manualRefreshToken.trim();
-            const cleanClient = manualClientId.trim();
-
-            setManualTokenInput(cleanToken);
-            setManualToken(cleanToken, cleanRefresh || undefined, cleanClient || undefined);
-
-            setTimeout(() => {
-                connectChat().catch((e: any) => {
-                    alert("Failed to connect with new token: " + e.message);
-                });
-            }, 100);
-
-            setShowTokenInput(false);
-        }
-    };
-
-    const handleGenerateToken = () => {
-        const url = "https://twitchtokengenerator.com/";
-        if (window.ipcRenderer) {
-            window.ipcRenderer.invoke('open-external', url);
-        } else {
-            window.open(url, '_blank');
-        }
-    }
-
     const handleConnectClick = useCallback(async () => {
         if (isChatConnected) {
             setShowDisconnectConfirm(true);
             return;
         }
         if (isAuthenticated && token) {
-            connectChat().catch((e: any) => {
-                console.error(e);
-                setShowTokenInput(true);
-            });
+            connectChat().catch(() => {});
             return;
         }
-        setShowTokenInput(true);
+        setShowDeviceAuth(true);
     }, [isAuthenticated, token, isChatConnected, connectChat]);
 
     const handleStop = () => {
@@ -209,19 +173,12 @@ export function TTSView({ addLog, setEmoteStats }: {
 
     // Global Hotkeys Listener
     useEffect(() => {
-        const stopListener = () => handleStop();
-        const connectListener = () => handleConnectClick();
-
-        if (window.ipcRenderer) {
-            window.ipcRenderer.on('hotkey-stop', stopListener);
-            window.ipcRenderer.on('hotkey-connect', connectListener);
-        }
+        const unlistenStop = listen('hotkey-stop', () => handleStop());
+        const unlistenConnect = listen('hotkey-connect', () => handleConnectClick());
 
         return () => {
-            if (window.ipcRenderer) {
-                window.ipcRenderer.off('hotkey-stop', stopListener);
-                window.ipcRenderer.off('hotkey-connect', connectListener);
-            }
+            unlistenStop.then(fn => fn());
+            unlistenConnect.then(fn => fn());
         };
     }, [handleConnectClick]);
 
@@ -252,59 +209,44 @@ export function TTSView({ addLog, setEmoteStats }: {
                 </div>
             }
         >
-            {/* Token Input Modal Overlay */}
-            {showTokenInput && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-in fade-in">
-                    <div className="bg-dark-bg border border-dark-surfaceHover p-8 rounded-xl max-w-md w-full shadow-2xl space-y-4">
-                        <h3 className="text-xl font-bold text-white">Manual Connection</h3>
-                        <p className="text-gray-400 text-sm">
-                            Paste your Twitch credentials below. We recommend using <button onClick={handleGenerateToken} className="text-twitch underline font-bold">TwitchTokenGenerator</button>.
-                        </p>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Access Token (Required)</label>
-                                <input type="password" placeholder="u..." value={manualToken} onChange={(e) => setManualTokenInput(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Refresh Token (Optional)</label>
-                                <input type="password" placeholder="For auto-reconnect..." value={manualRefreshToken} onChange={(e) => setManualRefreshToken(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Client ID (Optional)</label>
-                                <input type="text" placeholder="gp762..." value={manualClientId} onChange={(e) => setManualClientId(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white focus:border-twitch focus:ring-1 focus:ring-twitch transition-all font-mono text-sm" />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2 pt-2">
-                            <button onClick={() => setShowTokenInput(false)} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
-                            <button onClick={handleManualTokenSubmit} disabled={!manualToken} className="px-6 py-2 bg-twitch hover:bg-twitch-dark disabled:opacity-50 text-white rounded-lg font-bold">Verify & Connect</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeviceAuthModal isOpen={showDeviceAuth} onClose={() => setShowDeviceAuth(false)} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full min-h-0">
                 {/* Main Controls - Left Column */}
                 <div className="md:col-span-2 space-y-4">
                     {/* Voice Selection & Controls */}
                     <div className="p-4 rounded-xl bg-dark-bg border border-dark-surfaceHover">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <Volume2 size={18} className="text-twitch-light" />
-                                <h3 className="text-base font-semibold">Voice Configuration</h3>
-                            </div>
-                            <button onClick={() => { if (window.ipcRenderer) { window.ipcRenderer.invoke('open-external', 'ms-settings:apps-volume'); } }} className="text-xs text-twitch hover:text-white underline decoration-dashed underline-offset-4" title="Open Windows Volume Mixer to change output device">Setup Audio Output</button>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Volume2 size={18} className="text-twitch-light" />
+                            <h3 className="text-base font-semibold">Voice Configuration</h3>
                         </div>
                         <div className="space-y-4">
-                            <div>
-                                <select
-                                    value={selectedVoiceURI || ''}
-                                    onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all"
-                                >
-                                    {voices.map(v => (
-                                        <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
-                                    ))}
-                                </select>
+                            <div className="grid grid-cols-1 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-400 mb-1">Voice</label>
+                                    <select
+                                        value={selectedVoiceURI || ''}
+                                        onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all"
+                                    >
+                                        {voices.map(v => (
+                                            <option key={v.id} value={v.id}>{v.name} ({v.language})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-400 mb-1">Audio Output Device</label>
+                                    <select
+                                        value={audioDeviceId || ''}
+                                        onChange={(e) => setAudioDeviceId(e.target.value || null)}
+                                        className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all"
+                                    >
+                                        <option value="">System Default</option>
+                                        {audioDevices.map(d => (
+                                            <option key={d.id} value={d.id}>{d.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

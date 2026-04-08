@@ -1,106 +1,99 @@
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+
 export interface TTSMessage {
     id: string;
-    text: string;
+    text: string;        // displayed in queue/history
+    spokenText?: string; // what TTS actually says (defaults to text if omitted)
     username: string;
-    processed?: boolean;
+}
+
+export interface TtsVoice {
+    id: string;
+    name: string;
+    language: string;
 }
 
 export class TTSEngine {
-    // @ts-ignore - Used in internal callbacks
-    private synth = window.speechSynthesis;
-    // @ts-ignore - Used
     private queue: TTSMessage[] = [];
-    // @ts-ignore - Used
-    private isSpeaking = false;
-    // @ts-ignore - reference kept
-    private currentUtterance: SpeechSynthesisUtterance | null = null;
+    private isPlaying = false;
+    private stopped = false;
+    private unlisten: UnlistenFn | null = null;
 
-    // Settings
-    public volume = 1; // 0 to 1
-    public rate = 1;   // 0.1 to 10
-    public pitch = 1;  // 0 to 2
-    public selectedVoice: SpeechSynthesisVoice | null = null;
+    public volume = 1.0;
+    public rate = 1.0;
+    public voiceId: string | null = null;
+    public deviceId: string | null = null;
 
-    // Events
-    private onQueueChange: ((queue: TTSMessage[]) => void) | null = null;
+    private readonly onQueueChange: ((queue: TTSMessage[]) => void) | null;
 
     constructor(onQueueChange?: (queue: TTSMessage[]) => void) {
-        this.onQueueChange = onQueueChange || null;
+        this.onQueueChange = onQueueChange ?? null;
+        this.setupListener();
     }
 
-    // @ts-ignore
-    public getCurrentUtterance() { return this.currentUtterance; }
-
-    getVoices(): SpeechSynthesisVoice[] {
-        return window.speechSynthesis.getVoices();
-    }
-
-    speak(text: string, username: string) {
-        const message: TTSMessage = {
-            id: crypto.randomUUID(),
-            text,
-            username,
-            processed: false
-        };
-
-        this.queue.push(message);
-        this.notifyQueue();
-        this.processQueue();
-    }
-
-    stop() {
-        window.speechSynthesis.cancel();
-        this.queue = [];
-        this.isSpeaking = false;
-        this.notifyQueue();
-    }
-
-    skipCurrent() {
-        window.speechSynthesis.cancel();
-        this.isSpeaking = false;
-        this.processQueue();
-    }
-
-    private processQueue() {
-        if (this.isSpeaking || this.queue.length === 0) return;
-
-        const message = this.queue[0]; // Peek
-        this.isSpeaking = true;
-
-        const utterance = new SpeechSynthesisUtterance(message.text);
-
-        if (this.selectedVoice) utterance.voice = this.selectedVoice;
-        utterance.volume = this.volume;
-        utterance.rate = this.rate;
-        utterance.pitch = this.pitch;
-
-        utterance.onend = () => {
-            this.queue.shift(); // Remove finished
-            this.isSpeaking = false;
-            this.notifyQueue();
-            this.processQueue(); // Process next
-        };
-
-        utterance.onerror = (e) => {
-            console.error("TTS Error", e);
+    private async setupListener() {
+        this.unlisten = await listen<void>('speech-ended', () => {
+            if (this.stopped) return;
             this.queue.shift();
-            this.isSpeaking = false;
             this.notifyQueue();
-            this.processQueue();
-        };
-
-        this.currentUtterance = utterance;
-        window.speechSynthesis.speak(utterance);
+            if (this.queue.length > 0) {
+                this.playNext();
+            } else {
+                this.isPlaying = false;
+            }
+        });
     }
 
-    private notifyQueue() {
-        if (this.onQueueChange) {
-            this.onQueueChange([...this.queue]);
+    speak(text: string, username: string, spokenText?: string) {
+        const msg: TTSMessage = { id: crypto.randomUUID(), text, spokenText, username };
+        this.queue.push(msg);
+        this.notifyQueue();
+        if (!this.isPlaying) {
+            this.stopped = false;
+            this.isPlaying = true;
+            this.playNext();
         }
     }
 
-    setVoice(voiceName: string) {
-        const voices = this.getVoices();
-        this.selectedVoice = voices.find(v => v.name === voiceName) || null;
+    private playNext() {
+        const msg = this.queue[0];
+        if (!msg) { this.isPlaying = false; return; }
+
+        invoke('speak', {
+            text: msg.spokenText ?? msg.text,
+            voiceId: this.voiceId,
+            deviceId: this.deviceId,
+            rate: this.rate,
+            volume: this.volume,
+        }).catch(() => {
+            this.queue.shift();
+            this.notifyQueue();
+            if (this.queue.length > 0) {
+                this.playNext();
+            } else {
+                this.isPlaying = false;
+            }
+        });
+    }
+
+    stop() {
+        this.stopped = true;
+        this.isPlaying = false;
+        this.queue = [];
+        this.notifyQueue();
+        invoke('stop_speech').catch(() => {});
+    }
+
+    setVoice(voiceId: string | null) { this.voiceId = voiceId; }
+    setDevice(deviceId: string | null) { this.deviceId = deviceId; }
+
+    destroy() {
+        this.stop();
+        this.unlisten?.();
+    }
+
+    private notifyQueue() {
+        this.onQueueChange?.([...this.queue]);
     }
 }

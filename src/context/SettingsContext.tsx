@@ -8,6 +8,7 @@ export interface FilterSettings {
     removeRepeatedChars: boolean; // e.g. "Wwwwwwhat" -> "What"
     removeRepeatedWords: boolean; // e.g. "Zombie Zombie Zombie" -> "Zombie"
     readOwnMessages: boolean; // If true, read messages from the broadcaster
+    announceUsername: boolean; // If true, TTS says "Username says [message]"
 }
 
 export interface HotkeyConfig {
@@ -22,6 +23,8 @@ interface SettingsContextType {
     setRate: (r: number) => void;
     selectedVoiceURI: string | null;
     setSelectedVoiceURI: (uri: string) => void;
+    audioDeviceId: string | null;
+    setAudioDeviceId: (id: string | null) => void;
     autoConnect: boolean;
     setAutoConnect: (enabled: boolean) => void;
 
@@ -66,6 +69,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const [volume, setVolumeState] = useState(initialSettings?.volume ?? 1);
     const [rate, setRateState] = useState(initialSettings?.rate ?? 1);
     const [selectedVoiceURI, setSelectedVoiceURIState] = useState<string | null>(initialSettings?.selectedVoiceURI ?? null);
+    const [audioDeviceId, setAudioDeviceIdState] = useState<string | null>(initialSettings?.audioDeviceId ?? null);
     const [autoConnect, setAutoConnectState] = useState(initialSettings?.autoConnect ?? false);
     const [sidebarCollapsed, setSidebarCollapsedState] = useState(initialSettings?.sidebarCollapsed ?? false);
 
@@ -78,7 +82,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             removeRepeatedChars: true,
             removeRepeatedWords: true,
             maxMessageLength: 300,
-            readOwnMessages: true
+            readOwnMessages: true,
+            announceUsername: true,
         };
 
         if (initialSettings?.filterSettings) {
@@ -92,7 +97,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 blockedUsers: mergedBlocked,
                 // Ensure new flags are present even if loading old settings
                 removeRepeatedWords: initialSettings.filterSettings.removeRepeatedWords ?? true,
-                readOwnMessages: initialSettings.filterSettings.readOwnMessages ?? true
+                readOwnMessages: initialSettings.filterSettings.readOwnMessages ?? true,
+                announceUsername: initialSettings.filterSettings.announceUsername ?? true,
             };
         }
         return defaults;
@@ -120,19 +126,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             volume,
             rate,
             selectedVoiceURI,
+            audioDeviceId,
             autoConnect,
             filterSettings,
             sidebarCollapsed,
             hotkeys
         };
         saveSettings(settingsToSave);
-    }, [volume, rate, selectedVoiceURI, autoConnect, filterSettings, sidebarCollapsed, hotkeys]);
+    }, [volume, rate, selectedVoiceURI, audioDeviceId, autoConnect, filterSettings, sidebarCollapsed, hotkeys]);
 
-    // Sync Hotkeys with Main Process
+    // Sync Hotkeys with Tauri backend
     useEffect(() => {
-        if (window.ipcRenderer) {
-            window.ipcRenderer.send('update-global-hotkeys', hotkeys);
-        }
+        import('@tauri-apps/api/core').then(({ invoke }) => {
+            invoke('update_global_hotkeys', {
+                stopPlayback: hotkeys.stopPlayback || null,
+                connectChat: hotkeys.connectChat || null,
+            }).catch(() => {});
+        });
     }, [hotkeys]);
 
 
@@ -141,6 +151,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             volume, setVolume: setVolumeState,
             rate, setRate: setRateState,
             selectedVoiceURI, setSelectedVoiceURI: setSelectedVoiceURIState,
+            audioDeviceId, setAudioDeviceId: setAudioDeviceIdState,
             autoConnect, setAutoConnect: setAutoConnectState,
             filterSettings, updateFilterSettings: (updates) => setFilterSettingsState(prev => ({ ...prev, ...updates })),
             sidebarCollapsed, setSidebarCollapsed: setSidebarCollapsedState,

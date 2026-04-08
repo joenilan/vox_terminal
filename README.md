@@ -31,9 +31,8 @@ You can download the latest release from the [Releases](./release) folder (if av
 
 **Available formats:**
 - **Installer (`-Setup.exe`)**: Standard Windows installer.
-
-**Portable Mode:**
-To make the application portable, simply create a folder named `data` next to the main executable (Example: in the installation folder or `win-unpacked`). The app will store all settings and credentials locally within that folder.
+- **ZIP Archive (`.zip`)**: Compressed application (Extract and run).
+  > **Tip**: Create a folder named `data` next to the executable (inside the extracted folder) to store all settings and credentials locally, making it fully portable.
 
 
 ## Development

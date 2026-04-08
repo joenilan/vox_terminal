@@ -4,13 +4,10 @@ import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
 import { SettingsProvider } from './context/SettingsContext'
 import { ChatProvider } from './context/ChatContext'
-import { ThemeProvider } from './context/ThemeContext' // Import the provider, not the interface/context directly for usage
+import { ThemeProvider } from './context/ThemeContext'
+import { UpdateProvider } from './context/UpdateContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
-// Use contextBridge
-window.ipcRenderer.on('main-process-message', (_event, message) => {
-  console.log(message)
-})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -19,7 +16,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <SettingsProvider>
           <ChatProvider>
             <ThemeProvider>
-              <App />
+              <UpdateProvider>
+                <App />
+              </UpdateProvider>
             </ThemeProvider>
           </ChatProvider>
         </SettingsProvider>

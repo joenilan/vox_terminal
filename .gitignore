@@ -139,3 +139,11 @@ Thumbs.db
 # Security
 cert.pfx
 scripts/generate-cert.ps1
+.env.raspi
+
+# Tauri / Rust build output
+src-tauri/target/
+
+# Screenshot artifacts
+downloaded.png
+tauri-dev.png

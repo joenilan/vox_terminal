@@ -158,6 +158,22 @@ export function FiltersView() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="flex items-center justify-between p-3 rounded-lg bg-dark-surface overflow-hidden">
                             <div className="min-w-0 mr-2">
+                                <div className="text-sm font-medium text-white truncate">Announce Username</div>
+                                <div className="text-xs text-gray-400 truncate">"Username says message"</div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input
+                                    type="checkbox"
+                                    checked={filterSettings.announceUsername}
+                                    onChange={(e) => updateFilterSettings({ announceUsername: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-twitch/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-twitch"></div>
+                            </label>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-dark-surface overflow-hidden">
+                            <div className="min-w-0 mr-2">
                                 <div className="text-sm font-medium text-white truncate">Remove Emotes</div>
                                 <div className="text-xs text-gray-400 truncate">Strip emotes from audio</div>
                             </div>

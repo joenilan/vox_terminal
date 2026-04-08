@@ -1,15 +1,17 @@
 import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { TwitchAuthService } from '../services/TwitchAuthService';
 
+const REFRESH_EARLY_MS = 5 * 60 * 1000; // refresh 5 min before expiry
+
 interface AuthContextType {
     isAuthenticated: boolean;
     token: string | null;
     refreshToken: string | null;
-    clientId: string | null;
-    login: () => Promise<void>;
+    username: string | null;
     logout: () => void;
-    clearCredentials: () => void; // Added for explicit clear
-    setManualToken: (token: string, refreshToken?: string, clientId?: string) => void;
+    clearCredentials: () => void;
+    setManualToken: (token: string, refreshToken?: string, expiresAt?: number) => void;
+    setUsername: (username: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -18,46 +20,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [token, setToken] = useState<string | null>(null);
     const [refreshToken, setRefreshToken] = useState<string | null>(null);
-    const [clientId, setClientId] = useState<string | null>(null);
+    const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null);
+    const [username, setUsernameState] = useState<string | null>(null);
 
-    const login = useCallback(async () => {
-        // Check if we are in Electron
-        if (window.ipcRenderer) {
-            try {
-                const token = await TwitchAuthService.authenticateWithElectron();
-                if (token) {
-                    setToken(token);
-                    setIsAuthenticated(true);
-                    localStorage.setItem('twitch_token', token);
-                }
-            } catch (error) {
-                console.error('Auth failed', error);
-            }
-        } else {
-            // Fallback for dev mode (browser)
-            window.location.href = TwitchAuthService.getAuthUrl();
-        }
+    const setUsername = useCallback((name: string) => {
+        setUsernameState(name);
     }, []);
 
     const logout = useCallback(() => {
         setToken(null);
         setRefreshToken(null);
-        setClientId(null);
         setIsAuthenticated(false);
-        // Do NOT clear localStorage here, user wants to persist credentials
     }, []);
 
     const clearCredentials = useCallback(() => {
         setToken(null);
         setRefreshToken(null);
-        setClientId(null);
+        setTokenExpiresAt(null);
+        setUsernameState(null);
         setIsAuthenticated(false);
         localStorage.removeItem('twitch_token');
         localStorage.removeItem('twitch_refresh_token');
-        localStorage.removeItem('twitch_client_id');
+        localStorage.removeItem('twitch_token_expires_at');
     }, []);
 
-    const setManualToken = useCallback((newToken: string, newRefreshToken?: string, newClientId?: string) => {
+    const setManualToken = useCallback((newToken: string, newRefreshToken?: string, newExpiresAt?: number) => {
         setToken(newToken);
         localStorage.setItem('twitch_token', newToken);
 
@@ -66,42 +53,79 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.setItem('twitch_refresh_token', newRefreshToken);
         }
 
-        if (newClientId) {
-            setClientId(newClientId);
-            localStorage.setItem('twitch_client_id', newClientId);
+        if (newExpiresAt) {
+            setTokenExpiresAt(newExpiresAt);
+            localStorage.setItem('twitch_token_expires_at', String(newExpiresAt));
         }
 
         setIsAuthenticated(true);
     }, []);
 
-    // Initial Load
+    // Auto-refresh: schedule a refresh REFRESH_EARLY_MS before expiry.
+    // When the refresh succeeds, updating tokenExpiresAt re-triggers this effect,
+    // which schedules the next refresh automatically.
     useEffect(() => {
-        // Check local storage
+        if (!token || !refreshToken || tokenExpiresAt === null) return;
+
+        const delay = tokenExpiresAt - Date.now() - REFRESH_EARLY_MS;
+
+        const doRefresh = async () => {
+            const result = await TwitchAuthService.refreshAccessToken(refreshToken);
+            if (result) {
+                setToken(result.accessToken);
+                setRefreshToken(result.refreshToken);
+                setTokenExpiresAt(result.expiresAt);
+                localStorage.setItem('twitch_token', result.accessToken);
+                localStorage.setItem('twitch_refresh_token', result.refreshToken);
+                localStorage.setItem('twitch_token_expires_at', String(result.expiresAt));
+            } else {
+                // Refresh token rejected — clear everything, user must re-auth
+                setToken(null);
+                setRefreshToken(null);
+                setTokenExpiresAt(null);
+                setUsernameState(null);
+                setIsAuthenticated(false);
+                localStorage.removeItem('twitch_token');
+                localStorage.removeItem('twitch_refresh_token');
+                localStorage.removeItem('twitch_token_expires_at');
+            }
+        };
+
+        if (delay <= 0) {
+            doRefresh();
+            return;
+        }
+
+        const timer = setTimeout(doRefresh, delay);
+        return () => clearTimeout(timer);
+    }, [token, refreshToken, tokenExpiresAt]);
+
+    // Load saved tokens on startup
+    useEffect(() => {
         const storedToken = localStorage.getItem('twitch_token');
         const storedRefreshToken = localStorage.getItem('twitch_refresh_token');
-        const storedClientId = localStorage.getItem('twitch_client_id');
+        const storedExpiresAt = localStorage.getItem('twitch_token_expires_at');
 
         if (storedToken) {
             setToken(storedToken);
             if (storedRefreshToken) setRefreshToken(storedRefreshToken);
-            if (storedClientId) setClientId(storedClientId);
-            // Default to NOT authenticated initially if user explicitly logged out previously?
-            // Actually, if tokens exist, we usually auto-login or at least prepopulate.
-            // But if "logout" sets isAuthenticated=false and we reload...
-            // the Effect runs and sets isAuthenticated=true again.
-            // This means "Logout" will just act like a Refresh.
-            // We need a persistent 'isAuthenticated' state if we want to stay logged out with tokens saved.
-            // OR we just assume if tokens are there, we are ready to connect, but maybe not "Connected to Chat".
-            // The AuthContext tracks "Twitch Auth", not "Chat Connection".
-            // If tokens are there, we ARE authenticated with Twitch potentially.
-            // Let's keep it simple: Tokens = Authenticated.
-            // User can be Authenticated but Disconnected (from Chat).
+            if (storedExpiresAt) setTokenExpiresAt(Number(storedExpiresAt));
             setIsAuthenticated(true);
+
+            // Validate to get username (also confirms the token is still good)
+            TwitchAuthService.validateToken(storedToken).then((validation) => {
+                if (validation) {
+                    setUsernameState(validation.login);
+                }
+            });
         }
     }, []);
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, token, refreshToken, clientId, login, logout, clearCredentials, setManualToken }}>
+        <AuthContext.Provider value={{
+            isAuthenticated, token, refreshToken, username,
+            logout, clearCredentials, setManualToken, setUsername,
+        }}>
             {children}
         </AuthContext.Provider>
     );

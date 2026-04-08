@@ -1,15 +1,13 @@
 import { ViewShell } from '../components/ViewShell';
-import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch, Volume2, Settings } from 'lucide-react';
+import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch, Download, RefreshCw } from 'lucide-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { APP_VERSION } from '../config/version';
+import { useUpdate } from '../context/UpdateContext';
+import { DOWNLOAD_BASE } from '../services/UpdateService';
 
 export function AboutView() {
-    const openLink = (url: string) => {
-        if (window.ipcRenderer) {
-            window.ipcRenderer.invoke('open-external', url);
-        } else {
-            window.open(url, '_blank');
-        }
-    };
+    const openLink = (url: string) => openUrl(url).catch(() => {});
+    const { updateInfo, checking, fetchFailed, refresh } = useUpdate();
 
     return (
         <ViewShell
@@ -18,6 +16,37 @@ export function AboutView() {
             icon={Terminal}
         >
             <div className="max-w-2xl mx-auto space-y-8 mt-4">
+
+                {/* Update Banner */}
+                {updateInfo ? (
+                    <div className="p-4 bg-yellow-400/10 border border-yellow-400/30 rounded-xl flex items-start gap-4">
+                        <Download size={20} className="text-yellow-400 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-yellow-300 font-semibold text-sm">Update available — v{updateInfo.version}</p>
+                            <p className="text-yellow-400/70 text-xs mt-0.5 line-clamp-2">{updateInfo.notes}</p>
+                        </div>
+                        <button
+                            onClick={() => openLink(`${DOWNLOAD_BASE}/${updateInfo.files.setup}`)}
+                            className="shrink-0 px-3 py-1.5 bg-yellow-400 text-black text-xs font-bold rounded-lg hover:bg-yellow-300 transition-colors"
+                        >
+                            Download
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-between px-1">
+                        <span className="text-xs text-gray-500">
+                            {checking ? 'Checking for updates…' : fetchFailed ? 'Could not reach update server.' : 'You\'re on the latest version.'}
+                        </span>
+                        <button
+                            onClick={refresh}
+                            disabled={checking}
+                            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw size={12} className={checking ? 'animate-spin' : ''} />
+                            Check for updates
+                        </button>
+                    </div>
+                )}
 
                 {/* Developer Profile */}
                 <div className="p-6 bg-dark-bg border border-dark-surfaceHover rounded-xl text-center space-y-4">
@@ -33,40 +62,10 @@ export function AboutView() {
                         Built for streamers, by streamers.
                     </p>
 
-                    {/* Audio Output Limitation Note */}
-                    <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-left space-y-3">
-                        <div className="flex items-start gap-3">
-                            <div className="p-2 bg-yellow-500/20 rounded-lg shrink-0">
-                                <Volume2 size={20} className="text-yellow-500" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-bold text-yellow-500 uppercase mb-1">Audio Output Selection</h4>
-                                <p className="text-xs text-gray-400 leading-relaxed">
-                                    This app uses the Windows System TTS Engine, which follows your default playback device.
-                                    To route audio to a specific mixer track (e.g., for OBS):
-                                </p>
-                                <ol className="list-decimal list-inside text-xs text-gray-400 mt-2 space-y-1 ml-1">
-                                    <li>Start playing audio in VOX_TERMINAL (use Test button).</li>
-                                    <li>Open <strong>Windows Volume Mixer</strong>.</li>
-                                    <li>Find <strong>VOX_TERMINAL</strong> in the apps list.</li>
-                                    <li>Change the <strong>Output Device</strong> dropdown.</li>
-                                </ol>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => openLink('ms-settings:apps-volume')}
-                            className="w-full py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border border-yellow-500/20 flex items-center justify-center gap-2"
-                        >
-                            <Settings size={14} />
-                            Open Windows Volume Mixer
-                        </button>
-                    </div>
-
                     <div className="pt-4 border-t border-dark-surfaceHover flex flex-col items-center">
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Developed By</span>
                         <h3 className="text-xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-twitch-light to-purple-400">
-                            ZMBRT
+                            DreadedZombie
                         </h3>
                     </div>
                 </div>
