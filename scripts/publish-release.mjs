@@ -39,8 +39,8 @@ const notesMarkdown = extractVersionNotes(patchNotesSource, version)
 
 // Sign the NSIS installer for Tauri's updater
 const setupPath = resolve(releaseRoot, setupName)
-const privateKeyPath = process.env.TAURI_SIGNING_PRIVATE_KEY_PATH
-const privateKeyPassword = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? ''
+const privateKeyPath = env.TAURI_SIGNING_PRIVATE_KEY_PATH
+const privateKeyPassword = env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? ''
 if (!privateKeyPath) throw new Error('TAURI_SIGNING_PRIVATE_KEY_PATH env var is not set')
 execSync(
   `bunx tauri signer sign --private-key-path "${privateKeyPath}" --password "${privateKeyPassword}" "${setupPath}"`,
