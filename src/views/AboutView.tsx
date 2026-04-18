@@ -3,11 +3,10 @@ import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch, Downlo
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { APP_VERSION } from '../config/version';
 import { useUpdate } from '../context/UpdateContext';
-import { DOWNLOAD_BASE } from '../services/UpdateService';
 
 export function AboutView() {
     const openLink = (url: string) => openUrl(url).catch(() => {});
-    const { updateInfo, checking, fetchFailed, refresh } = useUpdate();
+    const { update, checking, downloading, downloadProgress, error, checkForUpdate, installUpdate } = useUpdate();
 
     return (
         <ViewShell
@@ -18,27 +17,35 @@ export function AboutView() {
             <div className="max-w-2xl mx-auto space-y-8 mt-4">
 
                 {/* Update Banner */}
-                {updateInfo ? (
+                {update ? (
                     <div className="p-4 bg-yellow-400/10 border border-yellow-400/30 rounded-xl flex items-start gap-4">
                         <Download size={20} className="text-yellow-400 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
-                            <p className="text-yellow-300 font-semibold text-sm">Update available — v{updateInfo.version}</p>
-                            <p className="text-yellow-400/70 text-xs mt-0.5 line-clamp-2">{updateInfo.notes}</p>
+                            <p className="text-yellow-300 font-semibold text-sm">Update available — v{update.version}</p>
+                            {update.body ? <p className="text-yellow-400/70 text-xs mt-0.5 line-clamp-2">{update.body}</p> : null}
                         </div>
-                        <button
-                            onClick={() => openLink(`${DOWNLOAD_BASE}/${updateInfo.files.setup}`)}
-                            className="shrink-0 px-3 py-1.5 bg-yellow-400 text-black text-xs font-bold rounded-lg hover:bg-yellow-300 transition-colors"
-                        >
-                            Download
-                        </button>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <button
+                                onClick={() => void installUpdate()}
+                                disabled={downloading}
+                                className="px-3 py-1.5 bg-yellow-400 text-black text-xs font-bold rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-60"
+                            >
+                                {downloading ? `Downloading… ${downloadProgress}%` : 'Update & Restart'}
+                            </button>
+                            {error ? <span className="text-xs text-red-400">{error}</span> : null}
+                        </div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-between px-1">
                         <span className="text-xs text-gray-500">
-                            {checking ? 'Checking for updates…' : fetchFailed ? 'Could not reach update server.' : 'You\'re on the latest version.'}
+                            {checking
+                                ? 'Checking for updates…'
+                                : error
+                                    ? 'Could not reach update server.'
+                                    : 'You\'re on the latest version.'}
                         </span>
                         <button
-                            onClick={refresh}
+                            onClick={() => void checkForUpdate()}
                             disabled={checking}
                             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
                         >

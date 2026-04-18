@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import SftpClient from 'ssh2-sftp-client'
@@ -23,13 +24,31 @@ const channel = env.RELEASE_CHANNEL ?? 'stable'
 const remoteDir = `${baseDir.replace(/\/+$/, '')}/${appSlug}`
 
 const setupName = `vox-terminal_${version}_x64-setup.exe`
+const setupSigName = `${setupName}.sig`
 const msiName = `vox-terminal_${version}_x64.msi`
 const portableName = `vox-terminal_${version}_x64_portable.zip`
 const manifestName = 'manifest.json'
 const notesName = 'notes.md'
 const latestName = 'latest.json'
+const updaterName = 'updater.json'
+const remoteLatestPath = `${remoteDir}/${latestName}`
+const remoteArchiveRoot = `${remoteDir}/archive`
+const downloadBase = `https://apps.zombie.digital/downloads/${appSlug}`
 
 const notesMarkdown = extractVersionNotes(patchNotesSource, version)
+
+// Sign the NSIS installer for Tauri's updater
+const setupPath = resolve(releaseRoot, setupName)
+const privateKeyPath = process.env.TAURI_SIGNING_PRIVATE_KEY_PATH
+const privateKeyPassword = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? ''
+if (!privateKeyPath) throw new Error('TAURI_SIGNING_PRIVATE_KEY_PATH env var is not set')
+execSync(
+  `bunx tauri signer sign --private-key-path "${privateKeyPath}" --password "${privateKeyPassword}" "${setupPath}"`,
+  { stdio: 'inherit' },
+)
+const setupSig = readFileSync(resolve(releaseRoot, setupSigName), 'utf8').trim()
+
+// latest.json — site download button format (unchanged)
 const latest = {
   version,
   channel,
@@ -44,14 +63,30 @@ const latest = {
   },
 }
 
+// updater.json — Tauri plugin format
+const updater = {
+  version,
+  notes: notesMarkdown.trim(),
+  pub_date: new Date().toISOString(),
+  platforms: {
+    'windows-x86_64': {
+      signature: setupSig,
+      url: `${downloadBase}/${setupName}`,
+    },
+  },
+}
+
 const latestPath = resolve(releaseRoot, latestName)
+const updaterPath = resolve(releaseRoot, updaterName)
 const notesPath = resolve(releaseRoot, notesName)
 
 writeFileSync(latestPath, `${JSON.stringify(latest, null, 2)}\n`)
+writeFileSync(updaterPath, `${JSON.stringify(updater, null, 2)}\n`)
 writeFileSync(notesPath, `${notesMarkdown.trim()}\n`)
 
 const uploadPaths = [
   setupName,
+  setupSigName,
   `${setupName}.sha256`,
   msiName,
   `${msiName}.sha256`,
@@ -59,10 +94,10 @@ const uploadPaths = [
   `${portableName}.sha256`,
   manifestName,
   latestName,
+  updaterName,
   notesName,
 ].map((name) => resolve(releaseRoot, name))
 
-// Verify all files exist before uploading
 for (const path of uploadPaths) {
   readFileSync(path)
 }
@@ -72,28 +107,7 @@ const sftp = new SftpClient()
 try {
   await sftp.connect({ host, port, username, password })
   await sftp.mkdir(remoteDir, true)
-
-  // Archive the current top-level release before uploading the new one
-  try {
-    const existingBuf = await sftp.get(`${remoteDir}/latest.json`)
-    const existingLatest = JSON.parse(existingBuf.toString('utf8'))
-    const oldVersion = existingLatest?.version
-
-    if (oldVersion && oldVersion !== version) {
-      const archiveDir = `${remoteDir}/archive/${oldVersion}`
-      await sftp.mkdir(archiveDir, true)
-
-      const topLevel = await sftp.list(remoteDir)
-      for (const item of topLevel) {
-        if (item.type === '-') {
-          await sftp.rename(`${remoteDir}/${item.name}`, `${archiveDir}/${item.name}`)
-        }
-      }
-      console.log(`Archived ${oldVersion} → archive/${oldVersion}/`)
-    }
-  } catch {
-    // No existing release yet — nothing to archive
-  }
+  await archiveCurrentTopLevelRelease(sftp)
 
   for (const localPath of uploadPaths) {
     const remotePath = `${remoteDir}/${basename(localPath)}`
@@ -106,6 +120,31 @@ try {
 console.log(`Published VOX_TERMINAL ${version} to ${remoteDir}`)
 for (const localPath of uploadPaths) {
   console.log(`- ${basename(localPath)}`)
+}
+
+async function archiveCurrentTopLevelRelease(sftp) {
+  const latestExists = await sftp.exists(remoteLatestPath)
+  if (!latestExists) return
+
+  const latestSource = await sftp.get(remoteLatestPath)
+  const previousRelease = JSON.parse(bufferToString(latestSource))
+  const previousVersion = previousRelease?.version
+
+  if (!previousVersion || previousVersion === version) return
+
+  const archiveDir = `${remoteArchiveRoot}/${previousVersion}`
+  await sftp.mkdir(archiveDir, true)
+
+  const entries = await sftp.list(remoteDir)
+  for (const entry of entries) {
+    if (entry.name === 'archive' || entry.type !== '-') continue
+
+    const from = `${remoteDir}/${entry.name}`
+    const to = `${archiveDir}/${entry.name}`
+    if (await sftp.exists(to)) await sftp.delete(to)
+
+    await sftp.rename(from, to)
+  }
 }
 
 function loadEnvFile(path) {
@@ -134,13 +173,17 @@ function requiredEnv(env, key) {
 }
 
 function extractVersionNotes(source, targetVersion) {
-  const sectionPattern = new RegExp(
-    `^##\\s+${escapeRegExp(targetVersion)}\\s*$([\\s\\S]*?)(?=^##\\s+\\S|\\s*$)`,
-    'm',
-  )
-  const match = source.match(sectionPattern)
-  if (!match) throw new Error(`Unable to find patch notes for version ${targetVersion} in PATCH_NOTES.md`)
-  return `## ${targetVersion}\n${match[1].trimEnd()}`
+  const sections = source.replaceAll('\r\n', '\n').split(/\n(?=## )/)
+  const section = sections.find((s) => {
+    const firstLine = s.split('\n')[0]
+    return new RegExp(`^##\\s+${escapeRegExp(targetVersion)}\\s*$`).test(firstLine)
+  })
+
+  if (!section) {
+    throw new Error(`Unable to find patch notes for version ${targetVersion} in PATCH_NOTES.md`)
+  }
+
+  return section.trimEnd()
 }
 
 function summarizeNotes(notesMarkdown) {
@@ -153,4 +196,11 @@ function summarizeNotes(notesMarkdown) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function bufferToString(value) {
+  if (typeof value === 'string') return value
+  if (Buffer.isBuffer(value)) return value.toString('utf8')
+  if (value instanceof Uint8Array) return Buffer.from(value).toString('utf8')
+  throw new Error('Unsupported SFTP response when reading latest.json')
 }

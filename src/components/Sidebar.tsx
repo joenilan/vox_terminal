@@ -52,7 +52,7 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
     const { isAuthenticated, username, clearCredentials } = useTwitchAuth();
     const { isConnected, isConnecting, connect, disconnect } = useChat();
     const { sidebarCollapsed, setSidebarCollapsed } = useSettings();
-    const { updateInfo, checking, fetchFailed } = useUpdate();
+    const { update, checking, error: updateError } = useUpdate();
     const [showDeviceAuth, setShowDeviceAuth] = useState(false);
 
     const collapsed = sidebarCollapsed;
@@ -94,13 +94,13 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
                         {checking && (
                             <span className="text-[9px] text-gray-400 mt-0.5">checking for updates…</span>
                         )}
-                        {!checking && updateInfo && (
-                            <span className="text-[9px] text-yellow-400 font-semibold mt-0.5">↑ v{updateInfo.version} available</span>
+                        {!checking && update && (
+                            <span className="text-[9px] text-yellow-400 font-semibold mt-0.5">↑ v{update.version} available</span>
                         )}
-                        {!checking && !updateInfo && fetchFailed && (
+                        {!checking && !update && updateError && (
                             <span className="text-[9px] text-gray-400 mt-0.5">update check failed</span>
                         )}
-                        {!checking && !updateInfo && !fetchFailed && (
+                        {!checking && !update && !updateError && (
                             <span className="text-[9px] text-green-400 mt-0.5">up to date</span>
                         )}
                     </div>
@@ -112,7 +112,7 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
                 <NavItem icon={ShieldAlert} label="Filters" active={currentView === 'filters'} onClick={() => setCurrentView('filters')} collapsed={collapsed} />
                 <NavItem icon={MessageSquare} label="Logs" active={currentView === 'logs'} onClick={() => setCurrentView('logs')} collapsed={collapsed} />
                 <NavItem icon={Settings} label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} collapsed={collapsed} />
-                <NavItem icon={Info} label="About" active={currentView === 'about'} onClick={() => setCurrentView('about')} collapsed={collapsed} badge={!!updateInfo} />
+                <NavItem icon={Info} label="About" active={currentView === 'about'} onClick={() => setCurrentView('about')} collapsed={collapsed} badge={!!update} />
             </nav>
 
             <div className={twMerge("pt-3 mt-auto border-t border-dark-surfaceHover space-y-2", collapsed && "border-t-0 space-y-0")}>
