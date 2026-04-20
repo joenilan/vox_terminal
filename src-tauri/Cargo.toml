@@ -2,7 +2,7 @@
 name = "vox-terminal"
 version = "1.0.0"
 description = "VOX_TERMINAL — Twitch TTS desktop application"
-authors = ["ZMBRT"]
+authors = ["DreadedZombie"]
 edition = "2021"
 
 [lib]

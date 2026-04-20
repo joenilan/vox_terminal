@@ -1,4 +1,4 @@
-import { Mic2, Settings, MessageSquare, ShieldAlert, Terminal, Info, ChevronLeft, ChevronRight, Loader2, Power, Twitch, LogOut } from 'lucide-react';
+import { Mic2, Settings, MessageSquare, ShieldAlert, Terminal, Info, ChevronLeft, ChevronRight, Loader2, Power, Twitch, LogOut, RefreshCw } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { useChat } from '../context/ChatContext';
 import { useTwitchAuth } from '../hooks/useTwitchAuth';
@@ -52,7 +52,7 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
     const { isAuthenticated, username, clearCredentials } = useTwitchAuth();
     const { isConnected, isConnecting, connect, disconnect } = useChat();
     const { sidebarCollapsed, setSidebarCollapsed } = useSettings();
-    const { update, checking, error: updateError } = useUpdate();
+    const { update, checking, error: updateError, checkForUpdate } = useUpdate();
     const [showDeviceAuth, setShowDeviceAuth] = useState(false);
 
     const collapsed = sidebarCollapsed;
@@ -91,18 +91,28 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
                     <div className="flex flex-col animate-in fade-in duration-200">
                         <h1 className="text-lg font-bold tracking-tight font-mono leading-none">VOX_TERMINAL</h1>
                         <span className="text-[10px] text-twitch font-mono font-medium opacity-80">v{APP_VERSION}</span>
-                        {checking && (
-                            <span className="text-[9px] text-gray-400 mt-0.5">checking for updates…</span>
-                        )}
-                        {!checking && update && (
-                            <span className="text-[9px] text-yellow-400 font-semibold mt-0.5">↑ v{update.version} available</span>
-                        )}
-                        {!checking && !update && updateError && (
-                            <span className="text-[9px] text-gray-400 mt-0.5">update check failed</span>
-                        )}
-                        {!checking && !update && !updateError && (
-                            <span className="text-[9px] text-green-400 mt-0.5">up to date</span>
-                        )}
+                        <div className="flex items-center gap-1 mt-0.5">
+                            {checking && (
+                                <span className="text-[9px] text-gray-400">checking for updates…</span>
+                            )}
+                            {!checking && update && (
+                                <span className="text-[9px] text-yellow-400 font-semibold">↑ v{update.version} available</span>
+                            )}
+                            {!checking && !update && updateError && (
+                                <span className="text-[9px] text-gray-400">update check failed</span>
+                            )}
+                            {!checking && !update && !updateError && (
+                                <span className="text-[9px] text-green-400">up to date</span>
+                            )}
+                            <button
+                                onClick={() => void checkForUpdate()}
+                                disabled={checking}
+                                title="Check for updates"
+                                className="text-gray-600 hover:text-gray-300 disabled:opacity-30 transition-colors"
+                            >
+                                <RefreshCw size={8} className={checking ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -112,7 +122,7 @@ export function Sidebar({ currentView, setCurrentView, emoteStats }: SidebarProp
                 <NavItem icon={ShieldAlert} label="Filters" active={currentView === 'filters'} onClick={() => setCurrentView('filters')} collapsed={collapsed} />
                 <NavItem icon={MessageSquare} label="Logs" active={currentView === 'logs'} onClick={() => setCurrentView('logs')} collapsed={collapsed} />
                 <NavItem icon={Settings} label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} collapsed={collapsed} />
-                <NavItem icon={Info} label="About" active={currentView === 'about'} onClick={() => setCurrentView('about')} collapsed={collapsed} badge={!!update} />
+                <NavItem icon={Info} label="About" active={currentView === 'about'} onClick={() => setCurrentView('about')} collapsed={collapsed} />
             </nav>
 
             <div className={twMerge("pt-3 mt-auto border-t border-dark-surfaceHover space-y-2", collapsed && "border-t-0 space-y-0")}>

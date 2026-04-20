@@ -1,12 +1,10 @@
 import { ViewShell } from '../components/ViewShell';
-import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch, Download, RefreshCw } from 'lucide-react';
+import { Terminal, Heart, Globe, Github, Twitter, Coffee, Rocket, Twitch } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { APP_VERSION } from '../config/version';
-import { useUpdate } from '../context/UpdateContext';
 
 export function AboutView() {
     const openLink = (url: string) => openUrl(url).catch(() => {});
-    const { update, checking, downloading, downloadProgress, error, checkForUpdate, installUpdate } = useUpdate();
 
     return (
         <ViewShell
@@ -15,45 +13,6 @@ export function AboutView() {
             icon={Terminal}
         >
             <div className="max-w-2xl mx-auto space-y-8 mt-4">
-
-                {/* Update Banner */}
-                {update ? (
-                    <div className="p-4 bg-yellow-400/10 border border-yellow-400/30 rounded-xl flex items-start gap-4">
-                        <Download size={20} className="text-yellow-400 shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-yellow-300 font-semibold text-sm">Update available — v{update.version}</p>
-                            {update.body ? <p className="text-yellow-400/70 text-xs mt-0.5 line-clamp-2">{update.body}</p> : null}
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <button
-                                onClick={() => void installUpdate()}
-                                disabled={downloading}
-                                className="px-3 py-1.5 bg-yellow-400 text-black text-xs font-bold rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-60"
-                            >
-                                {downloading ? `Downloading… ${downloadProgress}%` : 'Update & Restart'}
-                            </button>
-                            {error ? <span className="text-xs text-red-400">{error}</span> : null}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex items-center justify-between px-1">
-                        <span className="text-xs text-gray-500">
-                            {checking
-                                ? 'Checking for updates…'
-                                : error
-                                    ? 'Could not reach update server.'
-                                    : 'You\'re on the latest version.'}
-                        </span>
-                        <button
-                            onClick={() => void checkForUpdate()}
-                            disabled={checking}
-                            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
-                        >
-                            <RefreshCw size={12} className={checking ? 'animate-spin' : ''} />
-                            Check for updates
-                        </button>
-                    </div>
-                )}
 
                 {/* Developer Profile */}
                 <div className="p-6 bg-dark-bg border border-dark-surfaceHover rounded-xl text-center space-y-4">

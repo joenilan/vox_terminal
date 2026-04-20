@@ -25,7 +25,8 @@ export function TTSView({ addLog, setEmoteStats }: {
         rate, setRate,
         selectedVoiceURI, setSelectedVoiceURI,
         audioDeviceId, setAudioDeviceId,
-        filterSettings
+        filterSettings,
+        hotkeys,
     } = useSettings();
 
     // Chat Context
@@ -59,7 +60,9 @@ export function TTSView({ addLog, setEmoteStats }: {
 
     // State
     const [voices, setVoices] = useState<TtsVoice[]>([]);
+    const [voicesLoading, setVoicesLoading] = useState(true);
     const [audioDevices, setAudioDevices] = useState<AudioDevice[]>([]);
+    const [devicesLoading, setDevicesLoading] = useState(true);
     const [queue, setQueue] = useState<TTSMessage[]>([]);
     const [history, setHistory] = useState<TTSMessage[]>([]);
     const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
@@ -101,6 +104,7 @@ export function TTSView({ addLog, setEmoteStats }: {
         // Load WinRT voices and WASAPI output devices
         invoke<TtsVoice[]>('get_tts_voices').then((vs) => {
             setVoices(vs);
+            setVoicesLoading(false);
             if (selectedVoiceURI) {
                 const found = vs.find(v => v.id === selectedVoiceURI);
                 ttsEngine.current?.setVoice(found?.id ?? null);
@@ -110,7 +114,10 @@ export function TTSView({ addLog, setEmoteStats }: {
             }
         });
 
-        invoke<AudioDevice[]>('get_audio_devices').then(setAudioDevices);
+        invoke<AudioDevice[]>('get_audio_devices').then((ds) => {
+            setAudioDevices(ds);
+            setDevicesLoading(false);
+        });
 
         return () => {
             removeMessageHandler(handleChatMessage);
@@ -188,7 +195,12 @@ export function TTSView({ addLog, setEmoteStats }: {
             subtitle={`Synthesis module // v${APP_VERSION}`}
             icon={Mic2}
             headerAction={
-                <div className="flex gap-2 relative">
+                <div className="flex items-center gap-2 relative">
+                    {hotkeys.stopPlayback && (
+                        <span className="text-xs text-gray-500">
+                            Hotkey: <span className="font-mono text-gray-400">{hotkeys.stopPlayback.replace('CommandOrControl', 'Ctrl').replace('CmdOrCtrl', 'Ctrl')}</span>
+                        </span>
+                    )}
                     <button
                         onClick={handleStop}
                         className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors font-medium border border-red-500/20 text-sm"
@@ -227,11 +239,15 @@ export function TTSView({ addLog, setEmoteStats }: {
                                     <select
                                         value={selectedVoiceURI || ''}
                                         onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all"
+                                        disabled={voicesLoading}
+                                        className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all disabled:opacity-50 disabled:cursor-wait"
                                     >
-                                        {voices.map(v => (
-                                            <option key={v.id} value={v.id}>{v.name} ({v.language})</option>
-                                        ))}
+                                        {voicesLoading
+                                            ? <option value="">Loading voices…</option>
+                                            : voices.map(v => (
+                                                <option key={v.id} value={v.id}>{v.name} ({v.language})</option>
+                                            ))
+                                        }
                                     </select>
                                 </div>
                                 <div>
@@ -239,12 +255,18 @@ export function TTSView({ addLog, setEmoteStats }: {
                                     <select
                                         value={audioDeviceId || ''}
                                         onChange={(e) => setAudioDeviceId(e.target.value || null)}
-                                        className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all"
+                                        disabled={devicesLoading}
+                                        className="w-full px-3 py-2 rounded-lg bg-dark-surface border border-dark-surfaceHover text-white text-sm focus:outline-none focus:border-twitch focus:ring-1 focus:ring-twitch transition-all disabled:opacity-50 disabled:cursor-wait"
                                     >
-                                        <option value="">System Default</option>
-                                        {audioDevices.map(d => (
-                                            <option key={d.id} value={d.id}>{d.name}</option>
-                                        ))}
+                                        {devicesLoading
+                                            ? <option value="">Loading devices…</option>
+                                            : <>
+                                                <option value="">System Default</option>
+                                                {audioDevices.map(d => (
+                                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                                ))}
+                                            </>
+                                        }
                                     </select>
                                 </div>
                             </div>

@@ -197,6 +197,19 @@ body {
   height: 100vh;
 }
 
+/* Global theme transition baseline
+   All color/border/radius properties animate when the theme class swaps on <body>.
+   Specificity of * is near-zero so Tailwind utility classes (transition-none,
+   duration-75, etc.) override this per-element without !important.
+   To use in other projects: copy this block + define colors via CSS variables in tailwind.config.js */
+*,
+*::before,
+*::after {
+  transition-property: color, background-color, border-color, fill, stroke, border-radius, box-shadow;
+  transition-timing-function: ease;
+  transition-duration: 200ms;
+}
+
 /* Custom Scrollbar - Themed */
 ::-webkit-scrollbar {
   width: 8px;
